@@ -1,18 +1,28 @@
 :root {
-  --color-primary: #1a73e8;
-  --color-primary-dark: #174ea6;
-  --color-primary-soft: #e8f0fe;
+  --color-primary: #00897b;
+  --color-primary-dark: #00695c;
+  --color-primary-soft: #e0f2f1;
   --color-text: #202124;
   --color-text-secondary: #5f6368;
   --color-border: #dadce0;
   --color-surface: #ffffff;
   --color-surface-alt: #f8f9fa;
+  --color-danger: #d93025;
+  --color-success: #188038;
   --header-height: 56px;
   --shadow-sm: 0 1px 2px 0 rgba(60, 64, 67, 0.3), 0 1px 3px 1px rgba(60, 64, 67, 0.15);
   --shadow-md: 0 1px 6px rgba(32, 33, 36, 0.28);
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-pill: 999px;
+
+  --dpe-a: #319834;
+  --dpe-b: #5cb82f;
+  --dpe-c: #a6ce39;
+  --dpe-d: #f5db1e;
+  --dpe-e: #f2a71b;
+  --dpe-f: #ec6a1e;
+  --dpe-g: #e2231a;
 }
 
 * {
@@ -326,4 +336,397 @@ main {
   text-align: left;
   padding: 10px 8px;
   border-bottom: 1px solid var(--color-border);
+}
+
+/* Réinitialise le style par défaut de Leaflet pour nos icônes custom */
+.marker-pin-icon,
+.marker-here-icon {
+  background: transparent;
+  border: none;
+}
+
+/* Marqueurs de prix/m² custom (carte) */
+.marker-pin {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  padding: 4px 10px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  white-space: nowrap;
+  box-shadow: var(--shadow-sm);
+  transform: translate(-50%, -100%);
+}
+
+.marker-pin--active {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.marker-pin--rank-1,
+.marker-pin--rank-2,
+.marker-pin--rank-3 {
+  background: var(--color-primary);
+  color: #fff;
+  border-color: var(--color-primary);
+}
+
+.marker-pin__badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  color: var(--color-primary);
+  font-size: 0.65rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.marker-pin__you-are-here {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #1a73e8;
+  border: 3px solid #fff;
+  box-shadow: 0 0 0 2px #1a73e8, var(--shadow-md);
+  transform: translate(-50%, -50%);
+}
+
+/* Barre de filtres */
+.filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.filter-bar__field select,
+.filter-bar__field input {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 7px 10px;
+  font-size: 0.85rem;
+  font-family: inherit;
+  color: var(--color-text);
+  background: var(--color-surface);
+}
+
+.filter-bar__chip {
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  border-radius: var(--radius-pill);
+  padding: 7px 14px;
+  font-size: 0.82rem;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.filter-bar__chip--active {
+  background: var(--color-primary-soft);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
+.filter-bar__sort {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.82rem;
+  color: var(--color-text-secondary);
+}
+
+/* Cartes-résultat enrichies */
+.result-item__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 6px 0;
+}
+
+.result-item__badge {
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  background: var(--color-surface-alt);
+  border: 1px solid var(--color-border);
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+}
+
+.result-item__distance {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+}
+
+.result-item__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.result-item__cta {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--color-primary);
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius-pill);
+  padding: 5px 12px;
+  white-space: nowrap;
+}
+
+.result-item__cta:hover {
+  background: var(--color-primary-soft);
+  text-decoration: none;
+}
+
+/* Étiquette DPE colorée A -> G */
+.dpe-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 20px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #fff;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.dpe-badge--A { background: var(--dpe-a); }
+.dpe-badge--B { background: var(--dpe-b); }
+.dpe-badge--C { background: var(--dpe-c); color: #202124; }
+.dpe-badge--D { background: var(--dpe-d); color: #202124; }
+.dpe-badge--E { background: var(--dpe-e); }
+.dpe-badge--F { background: var(--dpe-f); }
+.dpe-badge--G { background: var(--dpe-g); }
+
+/* Skeletons de chargement */
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: -200px 0;
+  }
+  100% {
+    background-position: 200px 0;
+  }
+}
+
+.skeleton {
+  background: linear-gradient(90deg, var(--color-surface-alt) 25%, var(--color-border) 37%, var(--color-surface-alt) 63%);
+  background-size: 400px 100%;
+  animation: skeleton-shimmer 1.4s ease infinite;
+  border-radius: var(--radius-sm);
+}
+
+.skeleton-card {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.skeleton-card .skeleton {
+  height: 12px;
+  margin-bottom: 8px;
+}
+
+.skeleton-card .skeleton:nth-child(1) {
+  width: 60%;
+  height: 14px;
+}
+
+.skeleton-card .skeleton:nth-child(2) {
+  width: 40%;
+}
+
+.skeleton-card .skeleton:nth-child(3) {
+  width: 30%;
+}
+
+/* Bandeau d'erreur */
+.state-banner {
+  margin: 24px 16px;
+  padding: 16px;
+  border-radius: var(--radius-md);
+  background: var(--color-surface-alt);
+  color: var(--color-text-secondary);
+  font-size: 0.9rem;
+}
+
+.state-banner--error {
+  background: #fce8e6;
+  color: var(--color-danger);
+}
+
+.state-banner__retry {
+  display: inline-block;
+  margin-top: 10px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* Bandeau pleine largeur affiché tant que les données ne sont pas synchronisées */
+.sync-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: var(--color-primary-soft);
+  color: var(--color-primary-dark);
+  font-size: 0.85rem;
+  text-align: center;
+}
+
+/* En-tête sticky de la fiche détail */
+.detail__sticky-header {
+  position: sticky;
+  top: var(--header-height);
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 24px;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.detail__sticky-header h1 {
+  font-size: 1.1rem;
+  margin: 0;
+}
+
+/* Regroupement des lots d'une mutation (fiche détail) */
+.detail__lots-header {
+  margin-bottom: 4px;
+}
+
+.detail__lots-header p {
+  margin: 4px 0 0;
+}
+
+.lot-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.lot-row:last-child {
+  border-bottom: none;
+}
+
+.lot-row__label {
+  font-size: 0.9rem;
+  color: var(--color-text);
+}
+
+.lot-row__value {
+  font-weight: 600;
+  color: var(--color-primary);
+  white-space: nowrap;
+}
+
+/* Aperçu de valeur sur la page d'accueil */
+.hero__preview {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+  max-width: 720px;
+  width: 100%;
+  margin-top: 32px;
+}
+
+.hero__preview-card {
+  text-align: left;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.hero__preview-title {
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+  margin: 24px 0 0;
+}
+
+/* Responsive : carte + panneau -> feuille inférieure (bottom sheet) */
+@media (max-width: 768px) {
+  .map-layout {
+    flex-direction: column;
+    height: calc(100vh - var(--header-height));
+    position: relative;
+    overflow: hidden;
+  }
+
+  .map-layout__map {
+    flex: 1;
+  }
+
+  .map-layout__panel {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: auto;
+    max-height: 70vh;
+    border-radius: var(--radius-md) var(--radius-md) 0 0;
+    box-shadow: 0 -2px 10px rgba(32, 33, 36, 0.2);
+    z-index: 30;
+    transition: max-height 0.25s ease;
+  }
+
+  .map-layout__panel--collapsed {
+    max-height: 132px;
+  }
+
+  .map-layout__panel--collapsed .map-layout__list {
+    overflow: hidden;
+  }
+
+  .map-layout__handle {
+    display: flex;
+    justify-content: center;
+    padding: 8px 0 4px;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  .map-layout__handle-bar {
+    width: 36px;
+    height: 4px;
+    border-radius: var(--radius-pill);
+    background: var(--color-border);
+  }
+
+  .filter-bar {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+  }
+
+  .filter-bar__sort {
+    margin-left: 0;
+  }
+}
+
+@media (min-width: 769px) {
+  .map-layout__handle {
+    display: none;
+  }
 }

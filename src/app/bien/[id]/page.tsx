@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 
+import { DPEBadge } from "@/components/DPEBadge";
 import { Map } from "@/components/Map";
 import { getDVFByMutation } from "@/lib/api";
 
@@ -24,25 +25,44 @@ export default async function BienPage({ params }: BienPageProps) {
       label: `${lot.commune} — ${lot.valeur_fonciere.toLocaleString("fr-FR")} €`,
     }));
 
+  const [first] = lots;
+
   return (
     <div className="detail">
-      <h1>Mutation {params.id}</h1>
+      <div className="detail__sticky-header">
+        <h1>Mutation {params.id}</h1>
+      </div>
+      <div className="detail__lots-header">
+        <p className="result-item__meta">
+          {first.commune} ({first.code_postal}) ·{" "}
+          {new Date(first.date_mutation).toLocaleDateString("fr-FR")}
+        </p>
+        <p className="result-item__meta">
+          {lots.length} lot{lots.length > 1 ? "s" : ""} dans cette mutation
+        </p>
+      </div>
       <div className="detail__map">
         <Map markers={markers} />
       </div>
-      {lots.map((lot, index) => (
-        <div className="detail__card" key={`${lot.id_mutation}-${index}`}>
-          <p className="result-item__title">
-            {lot.type_local ?? "Bien"} — {lot.valeur_fonciere.toLocaleString("fr-FR")} €
-          </p>
-          <p className="result-item__meta">
-            {lot.commune} ({lot.code_postal})
-            {lot.surface_reelle_bati !== null ? ` · ${lot.surface_reelle_bati} m²` : ""}
-            {" · "}
-            {new Date(lot.date_mutation).toLocaleDateString("fr-FR")}
-          </p>
-        </div>
-      ))}
+      <div className="detail__card">
+        {lots.map((lot, index) => (
+          <div className="lot-row" key={`${lot.id_mutation}-${index}`}>
+            <span className="lot-row__label">
+              {lot.type_local ?? "Bien"}
+              {lot.surface_reelle_bati !== null ? ` · ${lot.surface_reelle_bati} m²` : ""}
+              {lot.etiquette_dpe && (
+                <>
+                  {" "}
+                  <DPEBadge etiquette={lot.etiquette_dpe} />
+                </>
+              )}
+            </span>
+            <span className="lot-row__value">
+              {lot.valeur_fonciere.toLocaleString("fr-FR")} €
+            </span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

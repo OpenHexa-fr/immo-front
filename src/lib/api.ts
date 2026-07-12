@@ -14,7 +14,10 @@ export interface DVFTransaction {
   commune: string;
   code_postal: string;
   location: GeoPoint | null;
+  etiquette_dpe: string | null;
 }
+
+export type DVFSortOption = "pertinence" | "prix" | "surface" | "distance" | "recent";
 
 export interface DVFSearchParams {
   commune?: string;
@@ -22,6 +25,13 @@ export interface DVFSearchParams {
   type_local?: string[];
   valeur_fonciere_min?: number;
   valeur_fonciere_max?: number;
+  surface_min?: number;
+  surface_max?: number;
+  etiquette_dpe?: string[];
+  lat?: number;
+  lon?: number;
+  radius_km?: number;
+  tri?: DVFSortOption;
   search_after?: string[];
   size?: number;
 }
@@ -63,4 +73,14 @@ export function searchDVF(
 
 export function getDVFByMutation(idMutation: string): Promise<DVFTransaction[]> {
   return apiGet<DVFTransaction[]>(`/api/v1/dvf/${encodeURIComponent(idMutation)}`);
+}
+
+export interface DomainStatus {
+  dvf: boolean;
+  dpe: boolean;
+  sitage: boolean;
+}
+
+export function getStatus(): Promise<DomainStatus> {
+  return apiGet<DomainStatus>("/api/v1/status");
 }

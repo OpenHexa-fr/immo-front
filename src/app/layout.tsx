@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
+import { SyncBanner } from "@/components/SyncBanner";
+
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -16,10 +18,17 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       <body>
         <header className="app-header">
           <Link href="/" className="app-header__brand">
-            <span className="app-header__logo">OH</span>
+            <span className="app-header__logo" aria-hidden="true">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M4 11.5 12 4l8 7.5" />
+                <path d="M6 10v9a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-9" />
+                <path d="M10 20v-5h4v5" />
+              </svg>
+            </span>
             OpenHexa Immo
           </Link>
         </header>
+        <SyncBanner />
         <main>{children}</main>
       </body>
     </html>
