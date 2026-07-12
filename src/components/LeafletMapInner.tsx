@@ -2,7 +2,8 @@
 
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { MapContainer, Marker, Popup, TileLayer } from "react-leaflet";
+import { useEffect } from "react";
+import { MapContainer, Marker, Popup, TileLayer, useMap } from "react-leaflet";
 
 // Le bundler de Next.js ne résout pas les images d'icônes par défaut de Leaflet :
 // sans ce correctif, les marqueurs s'affichent sans icône.
@@ -14,6 +15,7 @@ L.Icon.Default.mergeOptions({
 });
 
 export interface MapMarker {
+  id: string;
   lat: number;
   lon: number;
   label: string;
@@ -21,12 +23,33 @@ export interface MapMarker {
 
 interface LeafletMapInnerProps {
   markers: MapMarker[];
+  activeId?: string | null;
   zoom?: number;
 }
 
 const FRANCE_CENTER: [number, number] = [46.6, 2.2];
 
-export default function LeafletMapInner({ markers, zoom = 13 }: LeafletMapInnerProps) {
+function FlyToActiveMarker({
+  markers,
+  activeId,
+}: {
+  markers: MapMarker[];
+  activeId?: string | null;
+}) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (!activeId) return;
+    const marker = markers.find((item) => item.id === activeId);
+    if (marker) {
+      map.flyTo([marker.lat, marker.lon], Math.max(map.getZoom(), 14), { duration: 0.5 });
+    }
+  }, [activeId, markers, map]);
+
+  return null;
+}
+
+export default function LeafletMapInner({ markers, activeId, zoom = 13 }: LeafletMapInnerProps) {
   const center: [number, number] = markers.length
     ? [markers[0].lat, markers[0].lon]
     : FRANCE_CENTER;
@@ -41,11 +64,9 @@ export default function LeafletMapInner({ markers, zoom = 13 }: LeafletMapInnerP
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
+      <FlyToActiveMarker markers={markers} activeId={activeId} />
       {markers.map((marker) => (
-        <Marker
-          key={`${marker.lat}-${marker.lon}-${marker.label}`}
-          position={[marker.lat, marker.lon]}
-        >
+        <Marker key={marker.id} position={[marker.lat, marker.lon]}>
           <Popup>{marker.label}</Popup>
         </Marker>
       ))}

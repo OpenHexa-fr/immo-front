@@ -5,18 +5,18 @@ import { SearchBar } from "@/components/SearchBar";
 
 export default function HomePage() {
   return (
-    <section>
-      <h1>Recherchez un bien immobilier</h1>
-      <p>
-        Transactions DVF, diagnostics DPE et permis de construire, à partir des données ouvertes
-        du gouvernement français.
+    <section className="hero">
+      <h1 className="hero__title">Recherchez un bien immobilier</h1>
+      <p className="hero__subtitle">
+        Transactions DVF, diagnostics DPE et permis de construire, à partir des données
+        ouvertes du gouvernement français.
       </p>
       <Suspense fallback={null}>
-        <SearchBar />
+        <SearchBar variant="hero" />
       </Suspense>
-      <p>
-        <Link href="/recherche">Voir tous les résultats</Link>
-      </p>
+      <Link href="/recherche" className="hero__link">
+        Voir tous les résultats
+      </Link>
     </section>
   );
 }

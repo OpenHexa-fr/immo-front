@@ -9,13 +9,14 @@ const LeafletMapInner = dynamic(() => import("./LeafletMapInner"), { ssr: false 
 
 interface MapProps {
   markers: MapMarker[];
+  activeId?: string | null;
   zoom?: number;
 }
 
-export function Map({ markers, zoom }: MapProps) {
+export function Map({ markers, activeId, zoom }: MapProps) {
   return (
-    <div style={{ height: "400px", width: "100%" }}>
-      <LeafletMapInner markers={markers} zoom={zoom} />
+    <div style={{ height: "100%", width: "100%" }}>
+      <LeafletMapInner markers={markers} activeId={activeId} zoom={zoom} />
     </div>
   );
 }

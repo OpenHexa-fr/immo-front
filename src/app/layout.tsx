@@ -14,8 +14,11 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="fr">
       <body>
-        <header>
-          <Link href="/">OpenHexa Immo</Link>
+        <header className="app-header">
+          <Link href="/" className="app-header__brand">
+            <span className="app-header__logo">OH</span>
+            OpenHexa Immo
+          </Link>
         </header>
         <main>{children}</main>
       </body>
