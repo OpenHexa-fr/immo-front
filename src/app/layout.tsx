@@ -27,6 +27,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             </span>
             OpenHexa Immo
           </Link>
+          <Link href="/carte" className="app-header__nav-link">
+            Carte des prix
+          </Link>
         </header>
         <SyncBanner />
         <main>{children}</main>
