@@ -11,13 +11,12 @@ interface MapProps {
   markers: MapMarker[];
   activeId?: string | null;
   zoom?: number;
-  here?: { lat: number; lon: number } | null;
 }
 
-export function Map({ markers, activeId, zoom, here }: MapProps) {
+export function Map({ markers, activeId, zoom }: MapProps) {
   return (
     <div style={{ height: "100%", width: "100%" }}>
-      <LeafletMapInner markers={markers} activeId={activeId} zoom={zoom} here={here} />
+      <LeafletMapInner markers={markers} activeId={activeId} zoom={zoom} />
     </div>
   );
 }

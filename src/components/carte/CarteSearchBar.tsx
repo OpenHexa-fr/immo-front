@@ -2,17 +2,11 @@
 
 import { type FormEvent, useState } from "react";
 
+import { geocodeAddress } from "@/lib/geocode";
+
 interface CarteSearchBarProps {
   onLocate: (lon: number, lat: number, zoom: number) => void;
 }
-
-interface BanFeature {
-  geometry: { coordinates: [number, number] };
-  properties: { label: string; type: string };
-}
-
-// Base Adresse Nationale (data.gouv.fr) : géocodage public, sans clé.
-const BAN_SEARCH_URL = "https://api-adresse.data.gouv.fr/search/";
 
 export function CarteSearchBar({ onLocate }: CarteSearchBarProps) {
   const [query, setQuery] = useState("");
@@ -25,18 +19,12 @@ export function CarteSearchBar({ onLocate }: CarteSearchBarProps) {
     setLoading(true);
     setError(null);
     try {
-      const url = `${BAN_SEARCH_URL}?q=${encodeURIComponent(query)}&limit=1`;
-      const response = await fetch(url);
-      if (!response.ok) throw new Error("geocode failed");
-      const data = (await response.json()) as { features: BanFeature[] };
-      const feature = data.features[0];
-      if (!feature) {
+      const result = await geocodeAddress(query);
+      if (!result) {
         setError("Aucun résultat trouvé.");
         return;
       }
-      const [lon, lat] = feature.geometry.coordinates;
-      const zoom = feature.properties.type === "housenumber" ? 17 : feature.properties.type === "municipality" ? 12 : 14;
-      onLocate(lon, lat, zoom);
+      onLocate(result.lon, result.lat, result.zoom);
     } catch {
       setError("La recherche a échoué.");
     } finally {

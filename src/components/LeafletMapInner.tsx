@@ -18,7 +18,6 @@ interface LeafletMapInnerProps {
   markers: MapMarker[];
   activeId?: string | null;
   zoom?: number;
-  here?: { lat: number; lon: number } | null;
 }
 
 const FRANCE_CENTER: [number, number] = [46.6, 2.2];
@@ -57,23 +56,13 @@ function buildPriceIcon(marker: MapMarker, active: boolean): L.DivIcon {
   });
 }
 
-const HERE_ICON = L.divIcon({
-  className: "marker-here-icon",
-  html: '<span class="marker-pin__you-are-here"></span>',
-  iconAnchor: [0, 0],
-});
-
-export default function LeafletMapInner({ markers, activeId, zoom = 13, here }: LeafletMapInnerProps) {
-  const center: [number, number] = here
-    ? [here.lat, here.lon]
-    : markers.length
-      ? [markers[0].lat, markers[0].lon]
-      : FRANCE_CENTER;
+export default function LeafletMapInner({ markers, activeId, zoom = 13 }: LeafletMapInnerProps) {
+  const center: [number, number] = markers.length ? [markers[0].lat, markers[0].lon] : FRANCE_CENTER;
 
   return (
     <MapContainer
       center={center}
-      zoom={markers.length || here ? zoom : 5}
+      zoom={markers.length ? zoom : 5}
       style={{ height: "100%", width: "100%" }}
     >
       <TileLayer
@@ -81,11 +70,6 @@ export default function LeafletMapInner({ markers, activeId, zoom = 13, here }: 
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
       <FlyToActiveMarker markers={markers} activeId={activeId} />
-      {here && (
-        <Marker position={[here.lat, here.lon]} icon={HERE_ICON} zIndexOffset={1000}>
-          <Popup>Vous êtes ici</Popup>
-        </Marker>
-      )}
       {markers.map((marker) => (
         <Marker
           key={marker.id}

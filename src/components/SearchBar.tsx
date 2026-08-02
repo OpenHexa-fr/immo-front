@@ -3,11 +3,7 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { type FormEvent, useState } from "react";
 
-interface SearchBarProps {
-  variant?: "hero" | "panel";
-}
-
-export function SearchBar({ variant = "hero" }: SearchBarProps) {
+export function SearchBar() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [commune, setCommune] = useState(searchParams.get("commune") ?? "");
@@ -29,7 +25,7 @@ export function SearchBar({ variant = "hero" }: SearchBarProps) {
     }
     params.delete("lat");
     params.delete("lon");
-    router.push(`/recherche?${params.toString()}`);
+    router.push(`/carte?${params.toString()}`);
   }
 
   function handleGeolocate() {
@@ -45,7 +41,7 @@ export function SearchBar({ variant = "hero" }: SearchBarProps) {
         params.set("lon", String(position.coords.longitude));
         params.delete("commune");
         params.delete("code_postal");
-        router.push(`/recherche?${params.toString()}`);
+        router.push(`/carte?${params.toString()}`);
       },
       () => {
         setGeoError("Impossible de récupérer votre position.");
@@ -54,7 +50,7 @@ export function SearchBar({ variant = "hero" }: SearchBarProps) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className={`search-bar search-bar--${variant}`}>
+    <form onSubmit={handleSubmit} className="search-bar search-bar--hero">
       <span className="search-bar__icon" aria-hidden="true">
         <svg width="20" height="20" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
           <path

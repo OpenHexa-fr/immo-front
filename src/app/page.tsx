@@ -13,10 +13,10 @@ export default function HomePage() {
         ouvertes du gouvernement français.
       </p>
       <Suspense fallback={null}>
-        <SearchBar variant="hero" />
+        <SearchBar />
       </Suspense>
-      <Link href="/recherche" className="hero__link">
-        Voir tous les résultats
+      <Link href="/carte" className="hero__link">
+        Voir la carte des prix
       </Link>
       <NearbyPreview />
     </section>
