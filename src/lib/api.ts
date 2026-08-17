@@ -146,12 +146,17 @@ export interface PrixCarteBucket {
   code: string;
   label: string;
   prix_m2_median: number;
+  /** Absents quand la réponse vient du repli à la volée, avant pré-agrégation des zones. */
+  prix_m2_p25?: number | null;
+  prix_m2_p75?: number | null;
   nb_mutations: number;
 }
 
 export interface PrixCarteResponse {
   niveau: PrixCarteNiveau;
   buckets: PrixCarteBucket[];
+  /** Date du dernier calcul des zones, `null` si la réponse vient du repli à la volée. */
+  calcule_le?: string | null;
 }
 
 export function getPrixCarte(
