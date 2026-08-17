@@ -58,14 +58,29 @@ export interface DVFSearchParams {
   /** `carte` ne demande au backend que les champs nécessaires à l'affichage cartographique. */
   champs?: "complet" | "carte";
   tri?: DVFSortOption;
-  search_after?: string[];
+  /** Curseur opaque reçu en `next_cursor`, à renvoyer tel quel. */
+  cursor?: string;
   size?: number;
 }
 
 export interface PaginatedResponse<T> {
   items: T[];
   total: number;
-  next_search_after: unknown[] | null;
+  /** `"gte"` signale un total plafonné par Elasticsearch (10 000), pas un décompte exact. */
+  total_relation?: "eq" | "gte" | null;
+  /** Curseur opaque de page suivante, à renvoyer tel quel dans `cursor`. */
+  next_cursor?: string | null;
+}
+
+export interface ParcelleMutation {
+  id_mutation: string;
+  date_mutation: string;
+  lots: DVFTransaction[];
+}
+
+export interface ParcelleResponse {
+  id_parcelle: string;
+  mutations: ParcelleMutation[];
 }
 
 function buildQueryString(params: Record<string, unknown>): string {
@@ -126,6 +141,18 @@ export function searchDVF(
 
 export function getDVFByMutation(idMutation: string): Promise<DVFTransaction[]> {
   return apiGet<DVFTransaction[]>(`/api/v1/dvf/${encodeURIComponent(idMutation)}`);
+}
+
+/** Historique des ventes d'une parcelle, déjà groupé par mutation côté backend. */
+export function getParcelle(
+  idParcelle: string,
+  options: ApiOptions = {},
+): Promise<ParcelleResponse> {
+  return apiGet<ParcelleResponse>(
+    `/api/v1/dvf/parcelle/${encodeURIComponent(idParcelle)}`,
+    {},
+    options,
+  );
 }
 
 export interface DomainStatus {

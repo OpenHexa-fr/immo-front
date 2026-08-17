@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-import { searchDVF, type DVFTransaction } from "@/lib/api";
+import { getParcelle, type ParcelleMutation } from "@/lib/api";
 import { formatPrix, formatPrixM2 } from "@/lib/prixColor";
 
 import type { ParcelleSelection } from "./CarteMapInner";
@@ -10,23 +10,6 @@ import type { ParcelleSelection } from "./CarteMapInner";
 interface ParcelleDetailPanelProps {
   selection: ParcelleSelection;
   onClose: () => void;
-}
-
-interface Mutation {
-  idMutation: string;
-  lots: DVFTransaction[];
-}
-
-function groupByMutation(items: DVFTransaction[]): Mutation[] {
-  const byId = new Map<string, DVFTransaction[]>();
-  for (const item of items) {
-    const lots = byId.get(item.id_mutation) ?? [];
-    lots.push(item);
-    byId.set(item.id_mutation, lots);
-  }
-  return [...byId.entries()]
-    .map(([idMutation, lots]) => ({ idMutation, lots }))
-    .sort((a, b) => (a.lots[0].date_mutation < b.lots[0].date_mutation ? 1 : -1));
 }
 
 function CalendarIcon() {
@@ -74,22 +57,22 @@ function CloseIcon() {
 }
 
 export function ParcelleDetailPanel({ selection, onClose }: ParcelleDetailPanelProps) {
-  const [mutations, setMutations] = useState<Mutation[] | null>(null);
+  const [mutations, setMutations] = useState<ParcelleMutation[] | null>(null);
   const [error, setError] = useState(false);
 
   useEffect(() => {
-    let cancelled = false;
+    const controller = new AbortController();
     setMutations(null);
     setError(false);
-    searchDVF({ id_parcelle: selection.idParcelle, tri: "recent", size: 200 })
-      .then((response) => {
-        if (!cancelled) setMutations(groupByMutation(response.items));
-      })
-      .catch(() => {
-        if (!cancelled) setError(true);
+    // Le regroupement par mutation est fait par Elasticsearch : la limite porte
+    // désormais sur un nombre de mutations, la mesure qu'affiche ce panneau.
+    getParcelle(selection.idParcelle, { signal: controller.signal })
+      .then((response) => setMutations(response.mutations))
+      .catch((cause) => {
+        if ((cause as { name?: string }).name !== "AbortError") setError(true);
       });
     return () => {
-      cancelled = true;
+      controller.abort();
     };
   }, [selection.idParcelle]);
 
@@ -131,10 +114,10 @@ export function ParcelleDetailPanel({ selection, onClose }: ParcelleDetailPanelP
         {mutations !== null && mutations.length === 0 && (
           <p className="parcelle-panel__empty">Aucune vente connue sur cette parcelle (2021-2025).</p>
         )}
-        {mutations?.map(({ idMutation, lots }) => {
+        {mutations?.map(({ id_mutation, lots }) => {
           const lot = lots[0];
           return (
-            <div className="parcelle-panel__sale" key={idMutation}>
+            <div className="parcelle-panel__sale" key={id_mutation}>
               <div className="parcelle-panel__sale-row">
                 <span className="parcelle-panel__sale-label">Vente</span>
                 <span className="parcelle-panel__sale-price">
