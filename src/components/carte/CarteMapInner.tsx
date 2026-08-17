@@ -4,8 +4,7 @@ import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { useEffect, useRef } from "react";
 
-import { getPrixCarte, searchDVF, type PrixCarteBucket } from "@/lib/api";
-import { haversineKm } from "@/lib/geo";
+import { getPrixCarte, searchDVF, type BBox, type PrixCarteBucket } from "@/lib/api";
 import { formatPrix, formatPrixM2, prixToColor } from "@/lib/prixColor";
 
 export type CarteTier = "departement" | "commune" | "section";
@@ -44,6 +43,12 @@ interface CarteMapInnerProps {
 const PCI_SOURCE_URL = "https://data.geopf.fr/tms/1.0.0/PCI/{z}/{x}/{y}.pbf";
 const FRANCE_CENTER: [number, number] = [2.4, 46.6];
 const VENTES_MIN_ZOOM = 14;
+const VENTES_SOURCE = "ventes";
+
+const EMPTY_FEATURE_COLLECTION: GeoJSON.FeatureCollection<GeoJSON.Point> = {
+  type: "FeatureCollection",
+  features: [],
+};
 
 const STYLE: maplibregl.StyleSpecification = {
   version: 8,
@@ -63,6 +68,10 @@ const STYLE: maplibregl.StyleSpecification = {
       maxzoom: 19,
       attribution: '&copy; <a href="https://cartes.gouv.fr">IGN</a> - PCI vecteur',
     },
+    // Les ventes étaient posées une par une en `maplibregl.Marker`, soit
+    // jusqu'à 1 000 nœuds DOM repositionnés à chaque frame de déplacement. Une
+    // source GeoJSON les fait rendre par la carte elle-même, à coût constant.
+    [VENTES_SOURCE]: { type: "geojson", data: EMPTY_FEATURE_COLLECTION },
   },
   layers: [
     { id: "background", type: "background", paint: { "background-color": "#eef1f2" } },
@@ -161,6 +170,40 @@ const STYLE: maplibregl.StyleSpecification = {
       filter: ["in", ["get", "idu"], ["literal", []]],
       paint: { "line-color": "#6c3483", "line-width": 2 },
     },
+    {
+      id: "ventes-points",
+      type: "circle",
+      source: VENTES_SOURCE,
+      minzoom: VENTES_MIN_ZOOM,
+      paint: {
+        "circle-radius": 5,
+        "circle-color": "#8e44ad",
+        "circle-stroke-color": "#ffffff",
+        "circle-stroke-width": 1.5,
+      },
+    },
+    {
+      id: "ventes-prix",
+      type: "symbol",
+      source: VENTES_SOURCE,
+      minzoom: VENTES_MIN_ZOOM,
+      layout: {
+        "text-field": ["get", "prix_label"],
+        "text-size": 12,
+        "text-font": ["Noto Sans Regular"],
+        "text-offset": [0, -1.1],
+        "text-anchor": "bottom",
+        // Sur une parcelle vendue plusieurs fois, les points se superposent :
+        // MapLibre masque les étiquettes en collision plutôt que de les empiler
+        // illisiblement, les points restent tous cliquables.
+        "text-allow-overlap": false,
+      },
+      paint: {
+        "text-color": "#4a235a",
+        "text-halo-color": "#ffffff",
+        "text-halo-width": 1.6,
+      },
+    },
   ],
 };
 
@@ -188,6 +231,14 @@ function buildMatchExpression(
 
 const EMPTY_DATE_RANGE: DateRange = { min: "", max: "" };
 
+const VENTES_LAYERS = ["fill-ventes", "line-ventes", "ventes-points", "ventes-prix"];
+
+// L'annulation d'un `fetch` remonte selon l'environnement en `DOMException` ou
+// en `Error` ; seul le `name` est fiable pour la distinguer d'une vraie panne.
+function isAbortError(error: unknown): boolean {
+  return typeof error === "object" && error !== null && (error as { name?: string }).name === "AbortError";
+}
+
 export default function CarteMapInner({
   layers,
   onTierChange,
@@ -199,10 +250,14 @@ export default function CarteMapInner({
   const mapRef = useRef<maplibregl.Map | null>(null);
   const layersRef = useRef(layers);
   const venteDateRangeRef = useRef(venteDateRange);
-  const markersRef = useRef<maplibregl.Marker[]>([]);
   const cacheRef = useRef<Map<string, PrixCarteBucket[]>>(new Map());
+  // Dernière clé de zone effectivement peinte sur chaque calque : `idle` et
+  // `zoom` se déclenchent plusieurs fois par geste, sans que la zone change.
+  const paintedRef = useRef<Map<string, string>>(new Map());
   const popupRef = useRef<maplibregl.Popup | null>(null);
-  const loadVentesRef = useRef<((center: maplibregl.LngLat) => Promise<void>) | null>(null);
+  const loadVentesRef = useRef<(() => Promise<void>) | null>(null);
+  const ventesAbortRef = useRef<AbortController | null>(null);
+  const prixCarteAbortRef = useRef<AbortController | null>(null);
   const onSelectVenteRef = useRef(onSelectVente);
 
   layersRef.current = layers;
@@ -222,9 +277,9 @@ export default function CarteMapInner({
     mapRef.current = map;
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
 
-    const clearVentesMarkers = () => {
-      markersRef.current.forEach((marker) => marker.remove());
-      markersRef.current = [];
+    const setVentesData = (data: GeoJSON.FeatureCollection<GeoJSON.Point>) => {
+      const source = map.getSource(VENTES_SOURCE) as maplibregl.GeoJSONSource | undefined;
+      source?.setData(data);
     };
 
     async function loadPrixCarte(tier: CarteTier, center: maplibregl.LngLat) {
@@ -259,28 +314,42 @@ export default function CarteMapInner({
         scope = { code_commune: codeCommune };
       }
 
+      const layerId =
+        tier === "departement" ? "fill-departement" : tier === "commune" ? "fill-commune" : "fill-section";
+      // `zoom` (debounce) et `idle` rappellent cette fonction plusieurs fois
+      // par geste : sans cette garde, on repeint la même zone à l'identique.
+      if (paintedRef.current.get(layerId) === cacheKey) return;
+
       let buckets = cacheRef.current.get(cacheKey);
       if (!buckets) {
-        const niveau = tier;
-        const response = await getPrixCarte(niveau, scope);
-        buckets = response.buckets;
+        prixCarteAbortRef.current?.abort();
+        const controller = new AbortController();
+        prixCarteAbortRef.current = controller;
+        try {
+          const response = await getPrixCarte(tier, scope, { signal: controller.signal });
+          buckets = response.buckets;
+        } catch (error) {
+          if (!isAbortError(error)) console.error("Chargement des prix par zone échoué", error);
+          return;
+        }
         cacheRef.current.set(cacheKey, buckets);
       }
 
-      const layerId =
-        tier === "departement" ? "fill-departement" : tier === "commune" ? "fill-commune" : "fill-section";
       if (map.getLayer(layerId)) {
         map.setPaintProperty(
           layerId,
           "fill-color",
           buildMatchExpression(buckets, codeProperty, sliceToSection),
         );
+        paintedRef.current.set(layerId, cacheKey);
       }
     }
 
-    async function loadVentes(center: maplibregl.LngLat) {
-      clearVentesMarkers();
+    async function loadVentes() {
+      ventesAbortRef.current?.abort();
+
       if (!layersRef.current.ventes || map.getZoom() < VENTES_MIN_ZOOM) {
+        setVentesData(EMPTY_FEATURE_COLLECTION);
         if (map.getLayer("fill-ventes")) {
           map.setFilter("fill-ventes", ["in", ["get", "idu"], ["literal", []]]);
           map.setFilter("line-ventes", ["in", ["get", "idu"], ["literal", []]]);
@@ -288,49 +357,69 @@ export default function CarteMapInner({
         return;
       }
 
+      const controller = new AbortController();
+      ventesAbortRef.current = controller;
+
+      // L'emprise visible est un rectangle : la décrire comme telle évite de
+      // demander au backend le disque circonscrit, dont un bon tiers tombe
+      // hors écran.
       const bounds = map.getBounds();
-      const radiusKm = haversineKm(
-        { lat: center.lat, lon: center.lng },
-        { lat: bounds.getNorth(), lon: bounds.getEast() },
-      );
+      const bbox: BBox = [
+        bounds.getWest(),
+        bounds.getSouth(),
+        bounds.getEast(),
+        bounds.getNorth(),
+      ];
 
       const { min, max } = venteDateRangeRef.current;
-      const results = await searchDVF({
-        lat: center.lat,
-        lon: center.lng,
-        radius_km: Math.max(radiusKm, 0.05),
-        date_mutation_min: min || undefined,
-        date_mutation_max: max || undefined,
-        tri: "recent",
-        // Toutes les ventes de la zone visible (bornée par le zoom minimum du
-        // calque, donc une emprise réduite), pas un simple top-N. 1000 est le
-        // maximum accepté par l'API (fenêtre de résultats Elasticsearch).
-        size: 1000,
-      });
+      let results;
+      try {
+        results = await searchDVF(
+          {
+            bbox,
+            date_mutation_min: min || undefined,
+            date_mutation_max: max || undefined,
+            tri: "recent",
+            // Toutes les ventes de la zone visible (bornée par le zoom minimum
+            // du calque, donc une emprise réduite), pas un simple top-N. 1000
+            // est le maximum accepté par l'API (fenêtre de résultats ES).
+            size: 1000,
+            // Seuls la position, le prix et la parcelle sont exploités ici.
+            champs: "carte",
+          },
+          { signal: controller.signal },
+        );
+      } catch (error) {
+        if (!isAbortError(error)) console.error("Chargement des ventes échoué", error);
+        return;
+      }
 
-      const parcelIds = results.items
-        .map((item) => item.id_parcelle)
-        .filter((id): id is string => Boolean(id));
+      // Un geste plus récent a pu partir pendant l'attente : sa réponse fait
+      // foi, celle-ci ne doit pas la recouvrir.
+      if (controller.signal.aborted) return;
+
+      const parcelIds: string[] = [];
+      const features: GeoJSON.Feature<GeoJSON.Point>[] = [];
+      for (const item of results.items) {
+        if (!item.id_parcelle) continue;
+        parcelIds.push(item.id_parcelle);
+        if (!item.location) continue;
+        features.push({
+          type: "Feature",
+          geometry: { type: "Point", coordinates: [item.location.lon, item.location.lat] },
+          properties: {
+            id_parcelle: item.id_parcelle,
+            prix_label: formatPrix(item.valeur_fonciere),
+          },
+        });
+      }
 
       if (map.getLayer("fill-ventes")) {
         const filter: maplibregl.FilterSpecification = ["in", ["get", "idu"], ["literal", parcelIds]];
         map.setFilter("fill-ventes", filter);
         map.setFilter("line-ventes", filter);
       }
-
-      for (const item of results.items) {
-        if (!item.location || !item.id_parcelle) continue;
-        const idParcelle = item.id_parcelle;
-        const el = document.createElement("div");
-        el.innerHTML = `<span class="marker-pin">${formatPrix(item.valeur_fonciere)}</span>`;
-        const marker = new maplibregl.Marker({ element: el.firstElementChild as HTMLElement, anchor: "bottom" })
-          .setLngLat([item.location.lon, item.location.lat])
-          .addTo(map);
-        el.firstElementChild?.addEventListener("click", () => {
-          onSelectVenteRef.current?.({ idParcelle });
-        });
-        markersRef.current.push(marker);
-      }
+      setVentesData({ type: "FeatureCollection", features });
     }
 
     loadVentesRef.current = loadVentes;
@@ -345,7 +434,7 @@ export default function CarteMapInner({
 
     async function refresh() {
       await refreshColor();
-      await loadVentes(map.getCenter());
+      await loadVentes();
     }
 
     map.on("load", () => {
@@ -371,6 +460,19 @@ export default function CarteMapInner({
     });
 
     map.on("click", (event) => {
+      if (layersRef.current.ventes && map.getLayer("ventes-points")) {
+        // Le point de vente prime sur la parcelle qui le porte : c'est la
+        // cible visuelle la plus fine, et celle que l'utilisateur vise.
+        const pointFeatures = map.queryRenderedFeatures(event.point, {
+          layers: ["ventes-points"],
+        });
+        const idParcelle = pointFeatures[0]?.properties?.id_parcelle as string | undefined;
+        if (idParcelle) {
+          onSelectVenteRef.current?.({ idParcelle });
+          return;
+        }
+      }
+
       if (layersRef.current.ventes && map.getLayer("fill-ventes")) {
         const venteFeatures = map.queryRenderedFeatures(event.point, { layers: ["fill-ventes"] });
         const idParcelle = venteFeatures[0]?.properties?.idu as string | undefined;
@@ -419,7 +521,8 @@ export default function CarteMapInner({
     });
 
     return () => {
-      clearVentesMarkers();
+      ventesAbortRef.current?.abort();
+      prixCarteAbortRef.current?.abort();
       map.remove();
       mapRef.current = null;
     };
@@ -434,12 +537,9 @@ export default function CarteMapInner({
     for (const id of ["line-section"]) {
       if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", visibility(layers.parcelles));
     }
-    for (const id of ["fill-ventes", "line-ventes"]) {
+    for (const id of VENTES_LAYERS) {
       if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", visibility(layers.ventes));
     }
-    markersRef.current.forEach((marker) => {
-      marker.getElement().style.display = layers.ventes ? "" : "none";
-    });
     for (const id of ["fill-departement", "fill-commune", "fill-section"]) {
       if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", visibility(layers.prixM2));
     }
@@ -448,7 +548,7 @@ export default function CarteMapInner({
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !map.isStyleLoaded()) return;
-    loadVentesRef.current?.(map.getCenter());
+    loadVentesRef.current?.();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [venteDateRange.min, venteDateRange.max, layers.ventes]);
 

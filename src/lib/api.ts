@@ -35,6 +35,9 @@ export interface DVFTransaction {
 
 export type DVFSortOption = "pertinence" | "prix" | "surface" | "distance" | "recent";
 
+/** Emprise rectangulaire dans l'ordre GeoJSON, celui de `map.getBounds().toArray()`. */
+export type BBox = [minLon: number, minLat: number, maxLon: number, maxLat: number];
+
 export interface DVFSearchParams {
   commune?: string;
   code_postal?: string;
@@ -50,6 +53,10 @@ export interface DVFSearchParams {
   lat?: number;
   lon?: number;
   radius_km?: number;
+  /** Prime sur `lat`/`lon` + `radius_km` pour filtrer ; ceux-ci restent utiles au tri. */
+  bbox?: BBox;
+  /** `carte` ne demande au backend que les champs nécessaires à l'affichage cartographique. */
+  champs?: "complet" | "carte";
   tri?: DVFSortOption;
   search_after?: string[];
   size?: number;
@@ -65,7 +72,12 @@ function buildQueryString(params: Record<string, unknown>): string {
   const query = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {
     if (value === undefined || value === null) continue;
-    if (Array.isArray(value)) {
+    // `bbox` est une liste côté TypeScript mais un scalaire côté API (une
+    // chaîne `min_lon,min_lat,max_lon,max_lat`), contrairement aux filtres
+    // multivalués qui se répètent.
+    if (key === "bbox" && Array.isArray(value)) {
+      query.append(key, value.join(","));
+    } else if (Array.isArray(value)) {
       for (const item of value) query.append(key, String(item));
     } else {
       query.append(key, String(value));
@@ -74,10 +86,31 @@ function buildQueryString(params: Record<string, unknown>): string {
   return query.toString();
 }
 
-async function apiGet<T>(path: string, params: Record<string, unknown> = {}): Promise<T> {
+// Les données DVF ne changent qu'au rythme de l'ingestion (hebdomadaire). Le
+// backend envoie désormais un `Cache-Control` explicite, que le navigateur
+// applique seul ; côté serveur, Next a besoin d'une durée de revalidation pour
+// ne pas figer la réponse au build.
+const DEFAULT_REVALIDATE_SECONDS = 3600;
+
+interface ApiOptions {
+  signal?: AbortSignal;
+  /** À réserver aux données temps réel (`/status`), qui ne doivent jamais être servies d'un cache. */
+  noStore?: boolean;
+}
+
+async function apiGet<T>(
+  path: string,
+  params: Record<string, unknown> = {},
+  options: ApiOptions = {},
+): Promise<T> {
   const query = buildQueryString(params);
   const url = query ? `${API_URL}${path}?${query}` : `${API_URL}${path}`;
-  const response = await fetch(url, { cache: "no-store" });
+  const response = await fetch(url, {
+    signal: options.signal,
+    ...(options.noStore
+      ? { cache: "no-store" as const }
+      : { next: { revalidate: DEFAULT_REVALIDATE_SECONDS } }),
+  });
   if (!response.ok) {
     throw new Error(`Requête API échouée (${response.status}) : ${url}`);
   }
@@ -86,8 +119,9 @@ async function apiGet<T>(path: string, params: Record<string, unknown> = {}): Pr
 
 export function searchDVF(
   params: DVFSearchParams,
+  options: ApiOptions = {},
 ): Promise<PaginatedResponse<DVFTransaction>> {
-  return apiGet<PaginatedResponse<DVFTransaction>>("/api/v1/dvf/search", { ...params });
+  return apiGet<PaginatedResponse<DVFTransaction>>("/api/v1/dvf/search", { ...params }, options);
 }
 
 export function getDVFByMutation(idMutation: string): Promise<DVFTransaction[]> {
@@ -101,7 +135,9 @@ export interface DomainStatus {
 }
 
 export function getStatus(): Promise<DomainStatus> {
-  return apiGet<DomainStatus>("/api/v1/status");
+  // Interrogé en boucle par le bandeau de synchronisation : une réponse mise en
+  // cache le laisserait affiché après la fin de l'ingestion.
+  return apiGet<DomainStatus>("/api/v1/status", {}, { noStore: true });
 }
 
 export type PrixCarteNiveau = "departement" | "commune" | "section";
@@ -121,6 +157,7 @@ export interface PrixCarteResponse {
 export function getPrixCarte(
   niveau: PrixCarteNiveau,
   scope?: { code_departement?: string; code_commune?: string },
+  options: ApiOptions = {},
 ): Promise<PrixCarteResponse> {
-  return apiGet<PrixCarteResponse>("/api/v1/dvf/prix-carte", { niveau, ...scope });
+  return apiGet<PrixCarteResponse>("/api/v1/dvf/prix-carte", { niveau, ...scope }, options);
 }
