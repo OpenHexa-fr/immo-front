@@ -165,7 +165,6 @@ export function getParcelle(
 export interface DomainStatus {
   dvf: boolean;
   dpe: boolean;
-  sitage: boolean;
 }
 
 export function getStatus(): Promise<DomainStatus> {
