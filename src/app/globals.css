@@ -893,3 +893,98 @@ main {
     min-height: 45vh;
   }
 }
+
+
+/* ---- Variations de prix (hausse / baisse / stable) ---- */
+
+/* Le vert et le rouge sont doublés d'un signe explicite (+ / −) dans le texte :
+   la couleur seule ne doit pas porter l'information. */
+.evolution--hausse { color: #b3261e; }
+.evolution--baisse { color: #1e6b3a; }
+.evolution--stable { color: var(--color-text-muted, #5f6368); }
+
+.parcelle-panel__variations {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  margin: 2px 0 6px;
+}
+
+.parcelle-panel__variation {
+  font-size: 0.76rem;
+  font-weight: 600;
+}
+
+.evolution {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--color-border);
+}
+
+.evolution__entete {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.evolution__titre {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.evolution__totale {
+  font-size: 0.86rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.evolution__periode {
+  display: block;
+  font-size: 0.68rem;
+  font-weight: 500;
+  color: var(--color-text-muted, #5f6368);
+}
+
+.evolution__barres {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  height: 130px;
+}
+
+.evolution__barre-col {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  height: 100%;
+  gap: 3px;
+}
+
+.evolution__barre {
+  width: 100%;
+  min-height: 4px;
+  background: var(--color-primary);
+  border-radius: 3px 3px 0 0;
+  opacity: 0.75;
+}
+
+.evolution__valeur {
+  font-size: 0.62rem;
+  color: var(--color-text-muted, #5f6368);
+  white-space: nowrap;
+}
+
+.evolution__annee {
+  font-size: 0.68rem;
+  font-weight: 600;
+}
+
+.evolution__delta {
+  font-size: 0.64rem;
+  font-weight: 600;
+}

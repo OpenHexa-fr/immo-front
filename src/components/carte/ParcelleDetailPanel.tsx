@@ -2,8 +2,16 @@
 
 import { useEffect, useState } from "react";
 
-import { getParcelle, type ParcelleMutation } from "@/lib/api";
+import {
+  formatVariation,
+  getParcelle,
+  getZone,
+  type ParcelleMutation,
+  type ZoneResponse,
+} from "@/lib/api";
 import { formatPrix, formatPrixM2 } from "@/lib/prixColor";
+
+import { EvolutionZone } from "./EvolutionZone";
 
 import type { ParcelleSelection } from "./CarteMapInner";
 
@@ -61,10 +69,44 @@ function CloseIcon() {
 // pour un cas rare.
 const PAGE_MUTATIONS = 50;
 
+// Au-delà de cet écart de surface bâtie, deux ventes ne portent plus sur le
+// même bien : un terrain nu revendu bâti afficherait une « hausse » qui ne
+// mesure que la construction. Mieux vaut ne rien annoncer.
+const ECART_SURFACE_TOLERE = 0.1;
+
+/** Variation de prix entre deux ventes successives, si elles sont comparables. */
+function variationEntreVentes(
+  courante: ParcelleMutation,
+  precedente: ParcelleMutation,
+): number | null {
+  const prixCourant = courante.lots[0]?.valeur_fonciere;
+  const prixPrecedent = precedente.lots[0]?.valeur_fonciere;
+  if (!prixCourant || !prixPrecedent) return null;
+
+  const surfaceCourante = courante.lots[0]?.surface_reelle_bati ?? null;
+  const surfacePrecedente = precedente.lots[0]?.surface_reelle_bati ?? null;
+  if (surfaceCourante !== null && surfacePrecedente !== null && surfacePrecedente > 0) {
+    const ecart = Math.abs(surfaceCourante - surfacePrecedente) / surfacePrecedente;
+    if (ecart > ECART_SURFACE_TOLERE) return null;
+  } else if (surfaceCourante !== surfacePrecedente) {
+    // L'un est bâti, l'autre non : la comparaison n'a pas de sens.
+    return null;
+  }
+
+  return ((prixCourant - prixPrecedent) / prixPrecedent) * 100;
+}
+
+function tonalite(pct: number): string {
+  if (pct > 0.5) return "evolution--hausse";
+  if (pct < -0.5) return "evolution--baisse";
+  return "evolution--stable";
+}
+
 export function ParcelleDetailPanel({ selection, onClose }: ParcelleDetailPanelProps) {
   const [mutations, setMutations] = useState<ParcelleMutation[] | null>(null);
   const [error, setError] = useState(false);
   const [taille, setTaille] = useState(PAGE_MUTATIONS);
+  const [zone, setZone] = useState<ZoneResponse | null>(null);
   const [chargementSuite, setChargementSuite] = useState(false);
 
   // Une page pleine ne prouve pas qu'il y en a d'autres, mais c'est le seul
@@ -97,6 +139,20 @@ export function ParcelleDetailPanel({ selection, onClose }: ParcelleDetailPanelP
       controller.abort();
     };
   }, [selection.idParcelle, taille]);
+
+  const codeCommune = mutations?.[0]?.lots[0]?.code_commune ?? null;
+
+  // Médiane communale : sert de référence pour situer chaque vente dans son
+  // marché local. Une zone inconnue (calcul pas encore passé) désactive
+  // simplement l'affichage.
+  useEffect(() => {
+    if (!codeCommune) return;
+    const controller = new AbortController();
+    getZone("commune", codeCommune, { signal: controller.signal })
+      .then(setZone)
+      .catch(() => setZone(null));
+    return () => controller.abort();
+  }, [codeCommune]);
 
   const first = mutations?.[0]?.lots[0];
   const adresse = first?.adresse
@@ -136,8 +192,16 @@ export function ParcelleDetailPanel({ selection, onClose }: ParcelleDetailPanelP
         {mutations !== null && mutations.length === 0 && (
           <p className="parcelle-panel__empty">Aucune vente connue sur cette parcelle (2021-2025).</p>
         )}
-        {mutations?.map(({ id_mutation, lots }) => {
+        {mutations?.map(({ id_mutation, lots }, rang) => {
           const lot = lots[0];
+          // Les mutations sont triées de la plus récente à la plus ancienne :
+          // la vente précédente d'une même parcelle est donc la suivante.
+          const precedente = mutations[rang + 1];
+          const variation = precedente ? variationEntreVentes({ id_mutation, lots, date_mutation: lot.date_mutation }, precedente) : null;
+          const ecartMediane =
+            zone && lot.prix_m2 != null && zone.prix_m2_median > 0
+              ? ((lot.prix_m2 - zone.prix_m2_median) / zone.prix_m2_median) * 100
+              : null;
           return (
             <div className="parcelle-panel__sale" key={id_mutation}>
               <div className="parcelle-panel__sale-row">
@@ -152,6 +216,21 @@ export function ParcelleDetailPanel({ selection, onClose }: ParcelleDetailPanelP
               <p className="parcelle-panel__sale-date">
                 <CalendarIcon /> {new Date(lot.date_mutation).toLocaleDateString("fr-FR")}
               </p>
+              <div className="parcelle-panel__variations">
+                {variation != null && precedente && (
+                  <span className={`parcelle-panel__variation ${tonalite(variation)}`}>
+                    {formatVariation(variation)} depuis {new Date(precedente.date_mutation).getFullYear()}
+                  </span>
+                )}
+                {ecartMediane != null && (
+                  <span
+                    className={`parcelle-panel__variation ${tonalite(ecartMediane)}`}
+                    title={`Prix médian de la commune : ${formatPrixM2(zone!.prix_m2_median)}/m²`}
+                  >
+                    {formatVariation(ecartMediane)} vs médiane communale
+                  </span>
+                )}
+              </div>
               <div className="parcelle-panel__sale-row">
                 {lot.adresse && (
                   <span className="parcelle-panel__sale-address">
@@ -182,6 +261,7 @@ export function ParcelleDetailPanel({ selection, onClose }: ParcelleDetailPanelP
             </div>
           );
         })}
+        {codeCommune && <EvolutionZone codeCommune={codeCommune} />}
         {peutEnAvoirPlus && (
           <button
             type="button"
