@@ -187,6 +187,57 @@ export interface PrixCarteResponse {
   calcule_le?: string | null;
 }
 
+export interface PrixSeriePoint {
+  annee: number;
+  prix_m2_median: number;
+  prix_m2_p25?: number | null;
+  prix_m2_p75?: number | null;
+  nb_mutations: number;
+  /** Variation par rapport au millésime précédent. `null` sur le premier point. */
+  evolution_pct?: number | null;
+}
+
+export interface PrixSerieResponse {
+  niveau: "departement" | "commune";
+  code: string;
+  label?: string | null;
+  points: PrixSeriePoint[];
+  evolution_totale_pct?: number | null;
+}
+
+export function getPrixSerie(
+  niveau: "departement" | "commune",
+  code: string,
+  options: ApiOptions = {},
+): Promise<PrixSerieResponse> {
+  return apiGet<PrixSerieResponse>("/api/v1/dvf/prix-serie", { niveau, code }, options);
+}
+
+export interface ZoneResponse {
+  niveau: PrixCarteNiveau;
+  code: string;
+  label: string;
+  prix_m2_median: number;
+  prix_m2_p25?: number | null;
+  prix_m2_p75?: number | null;
+  nb_mutations: number;
+}
+
+/** Agrégat d'une zone, pour situer une vente dans son marché local. */
+export function getZone(
+  niveau: PrixCarteNiveau,
+  code: string,
+  options: ApiOptions = {},
+): Promise<ZoneResponse> {
+  return apiGet<ZoneResponse>("/api/v1/dvf/zone", { niveau, code }, options);
+}
+
+/** Formate une variation avec son signe : « +4,2 % », « −3,1 % ». */
+export function formatVariation(pct: number): string {
+  const signe = pct > 0 ? "+" : pct < 0 ? "\u2212" : "";
+  return `${signe}${Math.abs(pct).toLocaleString("fr-FR", { maximumFractionDigits: 1 })} %`;
+}
+
 export function getPrixCarte(
   niveau: PrixCarteNiveau,
   scope?: { code_departement?: string; code_commune?: string },
