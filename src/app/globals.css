@@ -335,6 +335,15 @@ main {
 .dpe-badge--F { background: var(--dpe-f); }
 .dpe-badge--G { background: var(--dpe-g); }
 
+/* Diagnostic non rapproché : volontairement neutre, pour ne pas se lire comme
+   une note de performance. */
+.dpe-badge--inconnu {
+  background: transparent;
+  color: var(--color-text-muted, #5f6368);
+  border: 1px dashed var(--color-border, #d3d6da);
+  cursor: help;
+}
+
 /* Skeletons de chargement */
 @keyframes skeleton-shimmer {
   0% {
