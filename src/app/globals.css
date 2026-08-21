@@ -635,6 +635,29 @@ main {
   }
 }
 
+/* Variante d'alerte : la carte ne montre pas tout ce qu'elle devrait. */
+.parcelle-panel__plus {
+  width: 100%;
+  margin-top: 8px;
+  padding: 10px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--color-primary);
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+}
+
+.parcelle-panel__plus:disabled {
+  color: var(--color-text-muted, #5f6368);
+  cursor: progress;
+}
+
+.carte-zoom-hint--alerte {
+  background: rgba(183, 121, 31, 0.95);
+}
+
 .carte-zoom-hint {
   position: absolute;
   top: 76px;

@@ -146,11 +146,12 @@ export function getDVFByMutation(idMutation: string): Promise<DVFTransaction[]> 
 /** Historique des ventes d'une parcelle, déjà groupé par mutation côté backend. */
 export function getParcelle(
   idParcelle: string,
+  params: { size?: number } = {},
   options: ApiOptions = {},
 ): Promise<ParcelleResponse> {
   return apiGet<ParcelleResponse>(
     `/api/v1/dvf/parcelle/${encodeURIComponent(idParcelle)}`,
-    {},
+    { ...params },
     options,
   );
 }

@@ -27,6 +27,17 @@ export interface DateRange {
   max: string;
 }
 
+/**
+ * Ce que le calque ventes montre réellement. L'API plafonne une page à 1 000
+ * résultats : au-delà, des ventes de la zone visible sont absentes de la carte
+ * sans que rien ne le signale. `tronque` permet de le dire à l'utilisateur.
+ */
+export interface VentesEtat {
+  affichees: number;
+  total: number;
+  tronque: boolean;
+}
+
 export interface ParcelleSelection {
   idParcelle: string;
   contenance?: number | null;
@@ -38,6 +49,7 @@ interface CarteMapInnerProps {
   flyTarget?: FlyTarget | null;
   venteDateRange?: DateRange;
   onSelectVente?: (selection: ParcelleSelection) => void;
+  onVentesChargees?: (etat: VentesEtat | null) => void;
 }
 
 const PCI_SOURCE_URL = "https://data.geopf.fr/tms/1.0.0/PCI/{z}/{x}/{y}.pbf";
@@ -245,6 +257,7 @@ export default function CarteMapInner({
   flyTarget,
   venteDateRange = EMPTY_DATE_RANGE,
   onSelectVente,
+  onVentesChargees,
 }: CarteMapInnerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
@@ -259,10 +272,12 @@ export default function CarteMapInner({
   const ventesAbortRef = useRef<AbortController | null>(null);
   const prixCarteAbortRef = useRef<AbortController | null>(null);
   const onSelectVenteRef = useRef(onSelectVente);
+  const onVentesChargeesRef = useRef(onVentesChargees);
 
   layersRef.current = layers;
   venteDateRangeRef.current = venteDateRange;
   onSelectVenteRef.current = onSelectVente;
+  onVentesChargeesRef.current = onVentesChargees;
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
@@ -349,6 +364,7 @@ export default function CarteMapInner({
       ventesAbortRef.current?.abort();
 
       if (!layersRef.current.ventes || map.getZoom() < VENTES_MIN_ZOOM) {
+        onVentesChargeesRef.current?.(null);
         setVentesData(EMPTY_FEATURE_COLLECTION);
         if (map.getLayer("fill-ventes")) {
           map.setFilter("fill-ventes", ["in", ["get", "idu"], ["literal", []]]);
@@ -420,6 +436,14 @@ export default function CarteMapInner({
         map.setFilter("line-ventes", filter);
       }
       setVentesData({ type: "FeatureCollection", features });
+      onVentesChargeesRef.current?.({
+        affichees: results.items.length,
+        // `total_relation === "gte"` signale un décompte lui-même plafonné par
+        // Elasticsearch : le nombre réel de ventes est alors au moins celui-ci.
+        total: results.total,
+        tronque:
+          results.items.length < results.total || results.total_relation === "gte",
+      });
     }
 
     loadVentesRef.current = loadVentes;
