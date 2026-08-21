@@ -3,10 +3,11 @@
 import { useEffect, useState } from "react";
 
 import { formatPrixM2 } from "@/lib/prixColor";
-import { formatVariation, getPrixSerie, type PrixSerieResponse } from "@/lib/api";
+import { formatVariation, getPrixSerie, type Categorie, type PrixSerieResponse } from "@/lib/api";
 
 interface EvolutionZoneProps {
   codeCommune: string;
+  categorie?: Categorie;
 }
 
 /** Classe de couleur d'une variation : hausse, baisse, ou stable. */
@@ -22,7 +23,7 @@ function tonalite(pct: number): string {
  * La choroplèthe montre une médiane tous millésimes confondus, qui masque le
  * mouvement du marché : entre 2021 et 2025, la tendance s'est inversée.
  */
-export function EvolutionZone({ codeCommune }: EvolutionZoneProps) {
+export function EvolutionZone({ codeCommune, categorie = "bati" }: EvolutionZoneProps) {
   const [serie, setSerie] = useState<PrixSerieResponse | null>(null);
   const [absente, setAbsente] = useState(false);
 
@@ -30,13 +31,13 @@ export function EvolutionZone({ codeCommune }: EvolutionZoneProps) {
     const controller = new AbortController();
     setSerie(null);
     setAbsente(false);
-    getPrixSerie("commune", codeCommune, { signal: controller.signal })
+    getPrixSerie("commune", codeCommune, categorie, { signal: controller.signal })
       .then(setSerie)
       .catch((cause) => {
         if ((cause as { name?: string }).name !== "AbortError") setAbsente(true);
       });
     return () => controller.abort();
-  }, [codeCommune]);
+  }, [codeCommune, categorie]);
 
   if (absente || (serie !== null && serie.points.length < 2)) return null;
   if (serie === null) return null;

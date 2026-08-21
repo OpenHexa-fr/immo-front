@@ -3,6 +3,8 @@
 import type { DateRange, LayerVisibility } from "./CarteMapInner";
 
 interface LayerSidebarProps {
+  /** Panneau de filtres rendu sous la liste des calques. */
+  children?: React.ReactNode;
   layers: LayerVisibility;
   onChange: (layers: LayerVisibility) => void;
   ventesLocked: boolean;
@@ -35,6 +37,7 @@ export function LayerSidebar({
   ventesLocked,
   dateRange,
   onDateRangeChange,
+  children,
 }: LayerSidebarProps) {
   const toggle = (key: keyof LayerVisibility) => onChange({ ...layers, [key]: !layers[key] });
 
@@ -111,6 +114,7 @@ export function LayerSidebar({
           </button>
         </li>
       </ul>
+      {children}
       <button
         type="button"
         className="carte-sidebar__reset"

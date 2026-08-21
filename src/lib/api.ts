@@ -58,6 +58,12 @@ export interface DVFSearchParams {
   /** `carte` ne demande au backend que les champs nécessaires à l'affichage cartographique. */
   champs?: "complet" | "carte";
   tri?: DVFSortOption;
+  surface_terrain_min?: number;
+  surface_terrain_max?: number;
+  pieces_min?: number;
+  pieces_max?: number;
+  prix_m2_min?: number;
+  prix_m2_max?: number;
   /** Curseur opaque reçu en `next_cursor`, à renvoyer tel quel. */
   cursor?: string;
   size?: number;
@@ -170,6 +176,9 @@ export function getStatus(): Promise<DomainStatus> {
 
 export type PrixCarteNiveau = "departement" | "commune" | "section";
 
+/** Marché agrégé. Au m², un appartement et un champ ne se comparent pas. */
+export type Categorie = "bati" | "terrain";
+
 export interface PrixCarteBucket {
   code: string;
   label: string;
@@ -208,9 +217,14 @@ export interface PrixSerieResponse {
 export function getPrixSerie(
   niveau: "departement" | "commune",
   code: string,
+  categorie: Categorie = "bati",
   options: ApiOptions = {},
 ): Promise<PrixSerieResponse> {
-  return apiGet<PrixSerieResponse>("/api/v1/dvf/prix-serie", { niveau, code }, options);
+  return apiGet<PrixSerieResponse>(
+    "/api/v1/dvf/prix-serie",
+    { niveau, code, categorie },
+    options,
+  );
 }
 
 export interface ZoneResponse {
@@ -240,7 +254,7 @@ export function formatVariation(pct: number): string {
 
 export function getPrixCarte(
   niveau: PrixCarteNiveau,
-  scope?: { code_departement?: string; code_commune?: string },
+  scope?: { code_departement?: string; code_commune?: string; categorie?: Categorie },
   options: ApiOptions = {},
 ): Promise<PrixCarteResponse> {
   return apiGet<PrixCarteResponse>("/api/v1/dvf/prix-carte", { niveau, ...scope }, options);

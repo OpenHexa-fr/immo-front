@@ -4,7 +4,15 @@ import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { useEffect, useRef } from "react";
 
-import { getPrixCarte, searchDVF, type BBox, type PrixCarteBucket } from "@/lib/api";
+import {
+  getPrixCarte,
+  searchDVF,
+  type BBox,
+  type Categorie,
+  type PrixCarteBucket,
+} from "@/lib/api";
+
+import type { FiltresVentes } from "./FiltresVentes";
 import { formatPrix, formatPrixM2, prixToColor } from "@/lib/prixColor";
 
 export type CarteTier = "departement" | "commune" | "section";
@@ -50,6 +58,8 @@ interface CarteMapInnerProps {
   venteDateRange?: DateRange;
   onSelectVente?: (selection: ParcelleSelection) => void;
   onVentesChargees?: (etat: VentesEtat | null) => void;
+  filtres?: FiltresVentes;
+  categorie?: Categorie;
 }
 
 const PCI_SOURCE_URL = "https://data.geopf.fr/tms/1.0.0/PCI/{z}/{x}/{y}.pbf";
@@ -258,6 +268,8 @@ export default function CarteMapInner({
   venteDateRange = EMPTY_DATE_RANGE,
   onSelectVente,
   onVentesChargees,
+  filtres,
+  categorie = "bati",
 }: CarteMapInnerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
@@ -273,11 +285,15 @@ export default function CarteMapInner({
   const prixCarteAbortRef = useRef<AbortController | null>(null);
   const onSelectVenteRef = useRef(onSelectVente);
   const onVentesChargeesRef = useRef(onVentesChargees);
+  const filtresRef = useRef(filtres);
+  const categorieRef = useRef(categorie);
 
   layersRef.current = layers;
   venteDateRangeRef.current = venteDateRange;
   onSelectVenteRef.current = onSelectVente;
   onVentesChargeesRef.current = onVentesChargees;
+  filtresRef.current = filtres;
+  categorieRef.current = categorie;
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
@@ -298,7 +314,7 @@ export default function CarteMapInner({
     };
 
     async function loadPrixCarte(tier: CarteTier, center: maplibregl.LngLat) {
-      let cacheKey = "departement";
+      let cacheKey = `departement:${categorieRef.current}`;
       let codeProperty = "insee_dep";
       let sliceToSection = false;
       let scope: { code_departement?: string; code_commune?: string } | undefined;
@@ -313,7 +329,7 @@ export default function CarteMapInner({
         });
         const codeDep = communeFeatures[0]?.properties?.code_dep as string | undefined;
         if (!codeDep) return;
-        cacheKey = `commune:${codeDep}`;
+        cacheKey = `commune:${codeDep}:${categorieRef.current}`;
         codeProperty = "code_insee";
         scope = { code_departement: codeDep };
       } else if (tier === "section") {
@@ -323,7 +339,7 @@ export default function CarteMapInner({
         });
         const codeCommune = parcelleFeatures[0]?.properties?.code_insee as string | undefined;
         if (!codeCommune) return;
-        cacheKey = `section:${codeCommune}`;
+        cacheKey = `section:${codeCommune}:${categorieRef.current}`;
         codeProperty = "idu";
         sliceToSection = true;
         scope = { code_commune: codeCommune };
@@ -341,7 +357,11 @@ export default function CarteMapInner({
         const controller = new AbortController();
         prixCarteAbortRef.current = controller;
         try {
-          const response = await getPrixCarte(tier, scope, { signal: controller.signal });
+          const response = await getPrixCarte(
+            tier,
+            { ...scope, categorie: categorieRef.current },
+            { signal: controller.signal },
+          );
           buckets = response.buckets;
         } catch (error) {
           if (!isAbortError(error)) console.error("Chargement des prix par zone échoué", error);
@@ -396,6 +416,13 @@ export default function CarteMapInner({
             date_mutation_min: min || undefined,
             date_mutation_max: max || undefined,
             tri: "recent",
+            type_local: filtresRef.current?.typeLocal.length
+              ? filtresRef.current.typeLocal
+              : undefined,
+            valeur_fonciere_min: filtresRef.current?.prixMin,
+            valeur_fonciere_max: filtresRef.current?.prixMax,
+            prix_m2_max: filtresRef.current?.prixM2Max,
+            pieces_min: filtresRef.current?.piecesMin,
             // Toutes les ventes de la zone visible (bornée par le zoom minimum
             // du calque, donc une emprise réduite), pas un simple top-N. 1000
             // est le maximum accepté par l'API (fenêtre de résultats ES).
@@ -525,11 +552,11 @@ export default function CarteMapInner({
 
       // Le département (pour le niveau commune) et la commune (pour le
       // niveau section) sont déjà présents sur la feature cliquée elle-même.
-      let cacheKey = "departement";
+      let cacheKey = `departement:${categorieRef.current}`;
       if (tier === "commune") {
-        cacheKey = `commune:${properties.code_dep as string | undefined}`;
+        cacheKey = `commune:${properties.code_dep as string | undefined}:${categorieRef.current}`;
       } else if (tier === "section") {
-        cacheKey = `section:${properties.code_insee as string | undefined}`;
+        cacheKey = `section:${properties.code_insee as string | undefined}:${categorieRef.current}`;
       }
 
       const bucket = cacheRef.current.get(cacheKey)?.find((item) => item.code === code);
