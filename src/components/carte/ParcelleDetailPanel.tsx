@@ -56,25 +56,47 @@ function CloseIcon() {
   );
 }
 
+// Taille de la première page. Une parcelle dépasse rarement quelques ventes ;
+// au-delà, mieux vaut charger à la demande que faire attendre tout le monde
+// pour un cas rare.
+const PAGE_MUTATIONS = 50;
+
 export function ParcelleDetailPanel({ selection, onClose }: ParcelleDetailPanelProps) {
   const [mutations, setMutations] = useState<ParcelleMutation[] | null>(null);
   const [error, setError] = useState(false);
+  const [taille, setTaille] = useState(PAGE_MUTATIONS);
+  const [chargementSuite, setChargementSuite] = useState(false);
+
+  // Une page pleine ne prouve pas qu'il y en a d'autres, mais c'est le seul
+  // indice disponible : l'endpoint ne renvoie pas de total.
+  const peutEnAvoirPlus = mutations !== null && mutations.length >= taille;
+
+  useEffect(() => {
+    setTaille(PAGE_MUTATIONS);
+  }, [selection.idParcelle]);
 
   useEffect(() => {
     const controller = new AbortController();
-    setMutations(null);
+    if (taille === PAGE_MUTATIONS) setMutations(null);
     setError(false);
+    setChargementSuite(taille > PAGE_MUTATIONS);
     // Le regroupement par mutation est fait par Elasticsearch : la limite porte
-    // désormais sur un nombre de mutations, la mesure qu'affiche ce panneau.
-    getParcelle(selection.idParcelle, { signal: controller.signal })
-      .then((response) => setMutations(response.mutations))
+    // sur un nombre de mutations, la mesure qu'affiche ce panneau.
+    getParcelle(selection.idParcelle, { size: taille }, { signal: controller.signal })
+      .then((response) => {
+        setMutations(response.mutations);
+        setChargementSuite(false);
+      })
       .catch((cause) => {
-        if ((cause as { name?: string }).name !== "AbortError") setError(true);
+        if ((cause as { name?: string }).name !== "AbortError") {
+          setError(true);
+          setChargementSuite(false);
+        }
       });
     return () => {
       controller.abort();
     };
-  }, [selection.idParcelle]);
+  }, [selection.idParcelle, taille]);
 
   const first = mutations?.[0]?.lots[0];
   const adresse = first?.adresse
@@ -160,6 +182,16 @@ export function ParcelleDetailPanel({ selection, onClose }: ParcelleDetailPanelP
             </div>
           );
         })}
+        {peutEnAvoirPlus && (
+          <button
+            type="button"
+            className="parcelle-panel__plus"
+            onClick={() => setTaille((valeur) => valeur + PAGE_MUTATIONS)}
+            disabled={chargementSuite}
+          >
+            {chargementSuite ? "Chargement…" : "Afficher plus de ventes"}
+          </button>
+        )}
       </div>
     </div>
   );

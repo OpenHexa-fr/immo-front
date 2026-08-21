@@ -13,6 +13,7 @@ import type {
   FlyTarget,
   LayerVisibility,
   ParcelleSelection,
+  VentesEtat,
 } from "./CarteMapInner";
 import { CarteSearchBar } from "./CarteSearchBar";
 import { LayerSidebar } from "./LayerSidebar";
@@ -29,6 +30,7 @@ export function CarteExplorer() {
   const [flyTarget, setFlyTarget] = useState<FlyTarget | null>(null);
   const [venteDateRange, setVenteDateRange] = useState<DateRange>(DEFAULT_DATE_RANGE);
   const [selectedParcelle, setSelectedParcelle] = useState<ParcelleSelection | null>(null);
+  const [ventesEtat, setVentesEtat] = useState<VentesEtat | null>(null);
 
   const ventesLocked = tier !== "section";
 
@@ -87,10 +89,19 @@ export function CarteExplorer() {
           flyTarget={flyTarget}
           venteDateRange={venteDateRange}
           onSelectVente={setSelectedParcelle}
+          onVentesChargees={setVentesEtat}
         />
         <CarteLegend />
         {layers.ventes && ventesLocked && (
           <p className="carte-zoom-hint">Zoomez sur une parcelle pour afficher les ventes</p>
+        )}
+        {/* Une emprise dense dépasse le plafond d'une page de résultats : sans
+            ce bandeau, les ventes manquantes disparaissaient silencieusement. */}
+        {layers.ventes && !ventesLocked && ventesEtat?.tronque && (
+          <p className="carte-zoom-hint carte-zoom-hint--alerte">
+            {ventesEtat.affichees.toLocaleString("fr-FR")} ventes affichées sur{" "}
+            {ventesEtat.total.toLocaleString("fr-FR")} dans cette zone — zoomez pour les voir toutes
+          </p>
         )}
         {selectedParcelle && (
           <ParcelleDetailPanel selection={selectedParcelle} onClose={() => setSelectedParcelle(null)} />

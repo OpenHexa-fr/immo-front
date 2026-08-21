@@ -2,7 +2,14 @@
 
 import dynamic from "next/dynamic";
 
-import type { CarteTier, DateRange, FlyTarget, LayerVisibility, ParcelleSelection } from "./CarteMapInner";
+import type {
+  CarteTier,
+  DateRange,
+  FlyTarget,
+  LayerVisibility,
+  ParcelleSelection,
+  VentesEtat,
+} from "./CarteMapInner";
 
 const CarteMapInner = dynamic(() => import("./CarteMapInner"), { ssr: false });
 
@@ -12,6 +19,7 @@ interface CarteMapProps {
   flyTarget?: FlyTarget | null;
   venteDateRange?: DateRange;
   onSelectVente?: (selection: ParcelleSelection) => void;
+  onVentesChargees?: (etat: VentesEtat | null) => void;
 }
 
 export function CarteMap({
@@ -20,6 +28,7 @@ export function CarteMap({
   flyTarget,
   venteDateRange,
   onSelectVente,
+  onVentesChargees,
 }: CarteMapProps) {
   return (
     <div style={{ height: "100%", width: "100%" }}>
@@ -29,6 +38,7 @@ export function CarteMap({
         flyTarget={flyTarget}
         venteDateRange={venteDateRange}
         onSelectVente={onSelectVente}
+        onVentesChargees={onVentesChargees}
       />
     </div>
   );
