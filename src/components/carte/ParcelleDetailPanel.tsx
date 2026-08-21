@@ -74,6 +74,12 @@ const PAGE_MUTATIONS = 50;
 // mesure que la construction. Mieux vaut ne rien annoncer.
 const ECART_SURFACE_TOLERE = 0.1;
 
+// En dessous de ce nombre de ventes, la médiane d'une section cadastrale n'est
+// plus fiable — certaines sections n'en comptent qu'une. On se rabat alors sur
+// la commune, moins locale mais robuste. Mesuré sur Lille et Bordeaux : plus de
+// 90 % des sections dépassent ce seuil.
+const VENTES_MINIMUM_SECTION = 30;
+
 /** Variation de prix entre deux ventes successives, si elles sont comparables. */
 function variationEntreVentes(
   courante: ParcelleMutation,
@@ -141,18 +147,41 @@ export function ParcelleDetailPanel({ selection, onClose }: ParcelleDetailPanelP
   }, [selection.idParcelle, taille]);
 
   const codeCommune = mutations?.[0]?.lots[0]?.code_commune ?? null;
+  const codeSection = mutations?.[0]?.lots[0]?.code_section ?? null;
 
-  // Médiane communale : sert de référence pour situer chaque vente dans son
-  // marché local. Une zone inconnue (calcul pas encore passé) désactive
-  // simplement l'affichage.
+  // Référence pour situer une vente dans son marché local. On vise la section
+  // cadastrale — l'échelle de quelques rues — parce qu'une médiane communale
+  // écrase les écarts entre quartiers d'une même ville. Repli sur la commune si
+  // la section a trop peu de ventes pour que sa médiane veuille dire quelque
+  // chose, ou si le calcul des zones n'a pas encore produit ce niveau.
   useEffect(() => {
-    if (!codeCommune) return;
+    if (!codeCommune && !codeSection) return;
     const controller = new AbortController();
-    getZone("commune", codeCommune, { signal: controller.signal })
-      .then(setZone)
-      .catch(() => setZone(null));
+    const signal = controller.signal;
+
+    async function chargerReference() {
+      if (codeSection) {
+        try {
+          const section = await getZone("section", codeSection, { signal });
+          if (section.nb_mutations >= VENTES_MINIMUM_SECTION) {
+            setZone(section);
+            return;
+          }
+        } catch {
+          // Section inconnue : on tente la commune ci-dessous.
+        }
+      }
+      if (!codeCommune) return;
+      try {
+        setZone(await getZone("commune", codeCommune, { signal }));
+      } catch {
+        setZone(null);
+      }
+    }
+
+    chargerReference();
     return () => controller.abort();
-  }, [codeCommune]);
+  }, [codeCommune, codeSection]);
 
   const first = mutations?.[0]?.lots[0];
   const adresse = first?.adresse
@@ -225,9 +254,9 @@ export function ParcelleDetailPanel({ selection, onClose }: ParcelleDetailPanelP
                 {ecartMediane != null && (
                   <span
                     className={`parcelle-panel__variation ${tonalite(ecartMediane)}`}
-                    title={`Prix médian de la commune : ${formatPrixM2(zone!.prix_m2_median)}/m²`}
+                    title={`${zone!.label} — prix médian ${formatPrixM2(zone!.prix_m2_median)}/m² sur ${zone!.nb_mutations.toLocaleString("fr-FR")} ventes`}
                   >
-                    {formatVariation(ecartMediane)} vs médiane communale
+                    {formatVariation(ecartMediane)} vs {zone!.niveau === "section" ? "le quartier" : "la commune"}
                   </span>
                 )}
               </div>
