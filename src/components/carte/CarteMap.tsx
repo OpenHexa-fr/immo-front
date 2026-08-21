@@ -10,6 +10,8 @@ import type {
   ParcelleSelection,
   VentesEtat,
 } from "./CarteMapInner";
+import type { FiltresVentes } from "./FiltresVentes";
+import type { Categorie } from "@/lib/api";
 
 const CarteMapInner = dynamic(() => import("./CarteMapInner"), { ssr: false });
 
@@ -20,6 +22,8 @@ interface CarteMapProps {
   venteDateRange?: DateRange;
   onSelectVente?: (selection: ParcelleSelection) => void;
   onVentesChargees?: (etat: VentesEtat | null) => void;
+  filtres?: FiltresVentes;
+  categorie?: Categorie;
 }
 
 export function CarteMap({
@@ -29,6 +33,8 @@ export function CarteMap({
   venteDateRange,
   onSelectVente,
   onVentesChargees,
+  filtres,
+  categorie,
 }: CarteMapProps) {
   return (
     <div style={{ height: "100%", width: "100%" }}>
@@ -39,6 +45,8 @@ export function CarteMap({
         venteDateRange={venteDateRange}
         onSelectVente={onSelectVente}
         onVentesChargees={onVentesChargees}
+        filtres={filtres}
+        categorie={categorie}
       />
     </div>
   );

@@ -4,6 +4,7 @@ import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { geocodeAddress } from "@/lib/geocode";
+import type { Categorie } from "@/lib/api";
 
 import { CarteLegend } from "./CarteLegend";
 import { CarteMap } from "./CarteMap";
@@ -16,6 +17,7 @@ import type {
   VentesEtat,
 } from "./CarteMapInner";
 import { CarteSearchBar } from "./CarteSearchBar";
+import { FILTRES_VIDES, FiltresVentesPanel, type FiltresVentes } from "./FiltresVentes";
 import { LayerSidebar } from "./LayerSidebar";
 import { ParcelleDetailPanel } from "./ParcelleDetailPanel";
 
@@ -31,6 +33,8 @@ export function CarteExplorer() {
   const [venteDateRange, setVenteDateRange] = useState<DateRange>(DEFAULT_DATE_RANGE);
   const [selectedParcelle, setSelectedParcelle] = useState<ParcelleSelection | null>(null);
   const [ventesEtat, setVentesEtat] = useState<VentesEtat | null>(null);
+  const [filtres, setFiltres] = useState<FiltresVentes>(FILTRES_VIDES);
+  const [categorie, setCategorie] = useState<Categorie>("bati");
 
   const ventesLocked = tier !== "section";
 
@@ -78,7 +82,14 @@ export function CarteExplorer() {
         ventesLocked={ventesLocked}
         dateRange={venteDateRange}
         onDateRangeChange={setVenteDateRange}
-      />
+      >
+        <FiltresVentesPanel
+          filtres={filtres}
+          onChange={setFiltres}
+          categorie={categorie}
+          onCategorieChange={setCategorie}
+        />
+      </LayerSidebar>
       <div className="carte-layout__map">
         <div className="carte-layout__search">
           <CarteSearchBar onLocate={handleLocate} />
@@ -90,6 +101,8 @@ export function CarteExplorer() {
           venteDateRange={venteDateRange}
           onSelectVente={setSelectedParcelle}
           onVentesChargees={setVentesEtat}
+          filtres={filtres}
+          categorie={categorie}
         />
         <CarteLegend />
         {layers.ventes && ventesLocked && (
