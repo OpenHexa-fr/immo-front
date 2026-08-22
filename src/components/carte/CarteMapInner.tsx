@@ -423,6 +423,9 @@ export default function CarteMapInner({
             valeur_fonciere_max: filtresRef.current?.prixMax,
             prix_m2_max: filtresRef.current?.prixM2Max,
             pieces_min: filtresRef.current?.piecesMin,
+            etiquette_dpe: filtresRef.current?.etiquetteDpe.length
+              ? filtresRef.current.etiquetteDpe
+              : undefined,
             // Toutes les ventes de la zone visible (bornée par le zoom minimum
             // du calque, donc une emprise réduite), pas un simple top-N. 1000
             // est le maximum accepté par l'API (fenêtre de résultats ES).
@@ -601,7 +604,17 @@ export default function CarteMapInner({
     if (!map || !map.isStyleLoaded()) return;
     loadVentesRef.current?.();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [venteDateRange.min, venteDateRange.max, layers.ventes]);
+  }, [
+    venteDateRange.min,
+    venteDateRange.max,
+    layers.ventes,
+    filtres?.typeLocal,
+    filtres?.prixMin,
+    filtres?.prixMax,
+    filtres?.prixM2Max,
+    filtres?.piecesMin,
+    filtres?.etiquetteDpe,
+  ]);
 
   useEffect(() => {
     const map = mapRef.current;

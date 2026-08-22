@@ -335,6 +335,30 @@ main {
 .dpe-badge--F { background: var(--dpe-f); }
 .dpe-badge--G { background: var(--dpe-g); }
 
+/* Cases à cocher DPE du panneau de filtres : réutilisent les couleurs
+   d'étiquette existantes, avec un contour marqué à l'état actif. */
+.filtres__dpe {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.filtres__dpe-case {
+  width: 26px;
+  height: 24px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  border: 2px solid transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  opacity: 0.55;
+}
+
+.filtres__dpe-case--actif {
+  opacity: 1;
+  border-color: var(--color-text);
+}
+
 /* DPE postérieur à la vente (fenêtre de tolérance) : contour pointillé sur la
    couleur habituelle plutôt qu'une couleur dédiée — l'étiquette reste la bonne
    information, seule sa fiabilité au moment précis de la vente est en réserve. */

@@ -9,9 +9,12 @@ export interface FiltresVentes {
   prixMax?: number;
   prixM2Max?: number;
   piecesMin?: number;
+  etiquetteDpe: string[];
 }
 
-export const FILTRES_VIDES: FiltresVentes = { typeLocal: [] };
+export const FILTRES_VIDES: FiltresVentes = { typeLocal: [], etiquetteDpe: [] };
+
+const ETIQUETTES_DPE = ["A", "B", "C", "D", "E", "F", "G"];
 
 // Valeurs telles qu'elles apparaissent dans DVF : le filtre est un `term` exact
 // côté Elasticsearch, l'orthographe doit correspondre au fichier source.
@@ -46,8 +49,16 @@ export function FiltresVentesPanel({
     onChange({ ...filtres, typeLocal: actifs });
   };
 
+  const basculerEtiquette = (etiquette: string) => {
+    const actives = filtres.etiquetteDpe.includes(etiquette)
+      ? filtres.etiquetteDpe.filter((valeur) => valeur !== etiquette)
+      : [...filtres.etiquetteDpe, etiquette];
+    onChange({ ...filtres, etiquetteDpe: actives });
+  };
+
   const actifs =
     filtres.typeLocal.length +
+    filtres.etiquetteDpe.length +
     (filtres.prixMin !== undefined ? 1 : 0) +
     (filtres.prixMax !== undefined ? 1 : 0) +
     (filtres.prixM2Max !== undefined ? 1 : 0) +
@@ -134,6 +145,25 @@ export function FiltresVentesPanel({
           value={filtres.piecesMin ?? ""}
           onChange={(e) => onChange({ ...filtres, piecesMin: nombreOuVide(e.target.value) })}
         />
+      </div>
+
+      <div className="filtres__groupe">
+        <span className="filtres__label">Étiquette DPE</span>
+        <div className="filtres__dpe">
+          {ETIQUETTES_DPE.map((etiquette) => (
+            <button
+              key={etiquette}
+              type="button"
+              className={`filtres__dpe-case dpe-badge dpe-badge--${etiquette} ${
+                filtres.etiquetteDpe.includes(etiquette) ? "filtres__dpe-case--actif" : ""
+              }`}
+              onClick={() => basculerEtiquette(etiquette)}
+              aria-pressed={filtres.etiquetteDpe.includes(etiquette)}
+            >
+              {etiquette}
+            </button>
+          ))}
+        </div>
       </div>
     </div>
   );
