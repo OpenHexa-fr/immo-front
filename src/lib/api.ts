@@ -31,6 +31,8 @@ export interface DVFTransaction {
   prix_m2: number | null;
   location: GeoPoint | null;
   etiquette_dpe: string | null;
+  /** True si `etiquette_dpe` vient d'un DPE postérieur à la vente (fenêtre de 18 mois). */
+  etiquette_dpe_apres_vente?: boolean | null;
 }
 
 export type DVFSortOption = "pertinence" | "prix" | "surface" | "distance" | "recent";

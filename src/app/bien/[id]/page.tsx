@@ -51,7 +51,11 @@ export default async function BienPage({ params }: BienPageProps) {
               {lot.type_local ?? "Bien"}
               {lot.surface_reelle_bati !== null ? ` · ${lot.surface_reelle_bati} m²` : ""}
               {" "}
-              <DPEBadge etiquette={lot.etiquette_dpe} typeLocal={lot.type_local} />
+              <DPEBadge
+                  etiquette={lot.etiquette_dpe}
+                  typeLocal={lot.type_local}
+                  apresVente={lot.etiquette_dpe_apres_vente}
+                />
             </span>
             <span className="lot-row__value">
               {lot.valeur_fonciere.toLocaleString("fr-FR")} €

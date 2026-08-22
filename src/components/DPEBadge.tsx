@@ -10,15 +10,36 @@ interface DPEBadgeProps {
   /**
    * Sans ce type, l'absence d'étiquette reste muette. Avec, on distingue « pas
    * de diagnostic attendu » de « diagnostic non rapproché » : le rapprochement
-   * DVF↔DPE ne couvre qu'environ deux tiers des logements (l'ADEME ne géocode
-   * pas tous ses diagnostics), et une case vide se lirait à tort comme
-   * l'absence de DPE du bien.
+   * DVF↔DPE ne couvre qu'une partie des logements (l'ADEME ne géocode pas tous
+   * ses diagnostics, et aucun DPE antérieur n'existe pour une partie des
+   * ventes 2021-2022), et une case vide se lirait à tort comme l'absence de
+   * DPE du bien.
    */
   typeLocal?: string | null;
+  /**
+   * True si l'étiquette vient d'un DPE établi après la vente (fenêtre de
+   * tolérance de 18 mois, à défaut de DPE antérieur) : le bien a pu être
+   * rénové entre-temps, l'étiquette n'est donc pas garantie représentative de
+   * son état au moment de la vente.
+   */
+  apresVente?: boolean | null;
 }
 
-export function DPEBadge({ etiquette, typeLocal }: DPEBadgeProps) {
+export function DPEBadge({ etiquette, typeLocal, apresVente }: DPEBadgeProps) {
   if (etiquette && VALID_LETTERS.has(etiquette)) {
+    if (apresVente) {
+      return (
+        <span
+          className={`dpe-badge dpe-badge--${etiquette} dpe-badge--posterieur`}
+          title={`Diagnostic de performance énergétique : ${etiquette} — établi après la vente (le bien a pu être rénové depuis)`}
+        >
+          {etiquette}
+          <span className="dpe-badge__marqueur" aria-hidden="true">
+            *
+          </span>
+        </span>
+      );
+    }
     return (
       <span
         className={`dpe-badge dpe-badge--${etiquette}`}

@@ -96,7 +96,11 @@ export function ListeVentes() {
                   {vente.surface_reelle_bati !== null && ` · ${vente.surface_reelle_bati} m²`}
                   {vente.nombre_pieces_principales !== null &&
                     ` · ${vente.nombre_pieces_principales} p.`}{" "}
-                  <DPEBadge etiquette={vente.etiquette_dpe} typeLocal={vente.type_local} />
+                  <DPEBadge
+                    etiquette={vente.etiquette_dpe}
+                    typeLocal={vente.type_local}
+                    apresVente={vente.etiquette_dpe_apres_vente}
+                  />
                 </span>
                 <span className="liste__prix">
                   {formatPrix(vente.valeur_fonciere)}
