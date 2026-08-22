@@ -24,11 +24,15 @@ const LIBELLES: Record<string, string> = {
   "Local industriel. commercial ou assimilé": "Local commercial",
 };
 
+export type VueCarte = "prix" | "dpe";
+
 interface FiltresVentesProps {
   filtres: FiltresVentes;
   onChange: (filtres: FiltresVentes) => void;
   categorie: Categorie;
   onCategorieChange: (categorie: Categorie) => void;
+  vue: VueCarte;
+  onVueChange: (vue: VueCarte) => void;
 }
 
 function nombreOuVide(valeur: string): number | undefined {
@@ -41,6 +45,8 @@ export function FiltresVentesPanel({
   onChange,
   categorie,
   onCategorieChange,
+  vue,
+  onVueChange,
 }: FiltresVentesProps) {
   const basculerType = (type: string) => {
     const actifs = filtres.typeLocal.includes(type)
@@ -76,23 +82,44 @@ export function FiltresVentesPanel({
       </div>
 
       {/* La choroplèthe reste une vue d'ensemble non filtrée : elle est
-          pré-agrégée, la recolorer à la volée annulerait ce mécanisme. Seul le
-          marché affiché (bâti ou terrain) la concerne. */}
+          pré-agrégée, la recolorer à la volée annulerait ce mécanisme. Seuls
+          le marché affiché (bâti ou terrain) et la vue (prix ou DPE) la
+          concernent. */}
       <div className="filtres__groupe">
-        <span className="filtres__label">Marché affiché sur la carte</span>
+        <span className="filtres__label">Vue de la carte</span>
         <div className="filtres__segments">
-          {(["bati", "terrain"] as const).map((valeur) => (
+          {(["prix", "dpe"] as const).map((valeur) => (
             <button
               key={valeur}
               type="button"
-              className={`filtres__segment ${categorie === valeur ? "filtres__segment--actif" : ""}`}
-              onClick={() => onCategorieChange(valeur)}
+              className={`filtres__segment ${vue === valeur ? "filtres__segment--actif" : ""}`}
+              onClick={() => onVueChange(valeur)}
             >
-              {valeur === "bati" ? "Bâti" : "Terrain nu"}
+              {valeur === "prix" ? "Prix" : "DPE"}
             </button>
           ))}
         </div>
       </div>
+
+      {/* Un DPE ne concerne jamais un terrain nu : le choix bâti/terrain n'a
+          de sens que pour la vue prix. */}
+      {vue === "prix" && (
+        <div className="filtres__groupe">
+          <span className="filtres__label">Marché affiché sur la carte</span>
+          <div className="filtres__segments">
+            {(["bati", "terrain"] as const).map((valeur) => (
+              <button
+                key={valeur}
+                type="button"
+                className={`filtres__segment ${categorie === valeur ? "filtres__segment--actif" : ""}`}
+                onClick={() => onCategorieChange(valeur)}
+              >
+                {valeur === "bati" ? "Bâti" : "Terrain nu"}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="filtres__groupe">
         <span className="filtres__label">Type de bien</span>

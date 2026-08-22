@@ -897,6 +897,11 @@ main {
   margin: 4px 0;
 }
 
+.parcelle-panel__sale-address--reserve {
+  color: #b3261e;
+  font-style: italic;
+}
+
 .parcelle-panel__lot {
   display: flex;
   align-items: center;

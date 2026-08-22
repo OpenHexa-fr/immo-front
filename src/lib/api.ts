@@ -91,6 +91,23 @@ export interface ParcelleResponse {
   mutations: ParcelleMutation[];
 }
 
+/** Un diagnostic tel qu'établi, sans filtre de date ni de score — à la
+ * différence d'`etiquette_dpe` sur une vente, qui n'en retient qu'un seul. */
+export interface DPEHistoriqueEntry {
+  numero_dpe: string;
+  date_etablissement?: string | null;
+  etiquette_dpe?: string | null;
+  etiquette_ges?: string | null;
+  surface_habitable?: number | null;
+  type_batiment?: string | null;
+  score_ban?: number | null;
+}
+
+export interface ParcelleDpeHistoriqueResponse {
+  id_parcelle: string;
+  diagnostics: DPEHistoriqueEntry[];
+}
+
 function buildQueryString(params: Record<string, unknown>): string {
   const query = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {
@@ -164,6 +181,18 @@ export function getParcelle(
   );
 }
 
+/** Tous les diagnostics DPE connus aux adresses d'une parcelle, sans filtre. */
+export function getParcelleDpeHistorique(
+  idParcelle: string,
+  options: ApiOptions = {},
+): Promise<ParcelleDpeHistoriqueResponse> {
+  return apiGet<ParcelleDpeHistoriqueResponse>(
+    `/api/v1/dvf/parcelle/${encodeURIComponent(idParcelle)}/dpe`,
+    {},
+    options,
+  );
+}
+
 export interface DomainStatus {
   dvf: boolean;
   dpe: boolean;
@@ -188,6 +217,9 @@ export interface PrixCarteBucket {
   prix_m2_p25?: number | null;
   prix_m2_p75?: number | null;
   nb_mutations: number;
+  /** Part de passoires énergétiques (%) parmi les mutations dotées d'une étiquette DPE. */
+  dpe_part_passoire?: number | null;
+  dpe_nb_avec_etiquette?: number | null;
 }
 
 export interface PrixCarteResponse {

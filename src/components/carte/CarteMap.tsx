@@ -10,7 +10,7 @@ import type {
   ParcelleSelection,
   VentesEtat,
 } from "./CarteMapInner";
-import type { FiltresVentes } from "./FiltresVentes";
+import type { FiltresVentes, VueCarte } from "./FiltresVentes";
 import type { Categorie } from "@/lib/api";
 
 const CarteMapInner = dynamic(() => import("./CarteMapInner"), { ssr: false });
@@ -24,6 +24,8 @@ interface CarteMapProps {
   onVentesChargees?: (etat: VentesEtat | null) => void;
   filtres?: FiltresVentes;
   categorie?: Categorie;
+  vue?: VueCarte;
+  onSelectParcelleDpe?: (idParcelle: string) => void;
 }
 
 export function CarteMap({
@@ -35,6 +37,8 @@ export function CarteMap({
   onVentesChargees,
   filtres,
   categorie,
+  vue,
+  onSelectParcelleDpe,
 }: CarteMapProps) {
   return (
     <div style={{ height: "100%", width: "100%" }}>
@@ -47,6 +51,8 @@ export function CarteMap({
         onVentesChargees={onVentesChargees}
         filtres={filtres}
         categorie={categorie}
+        vue={vue}
+        onSelectParcelleDpe={onSelectParcelleDpe}
       />
     </div>
   );

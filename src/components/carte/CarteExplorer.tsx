@@ -17,9 +17,10 @@ import type {
   VentesEtat,
 } from "./CarteMapInner";
 import { CarteSearchBar } from "./CarteSearchBar";
-import { FILTRES_VIDES, FiltresVentesPanel, type FiltresVentes } from "./FiltresVentes";
+import { FILTRES_VIDES, FiltresVentesPanel, type FiltresVentes, type VueCarte } from "./FiltresVentes";
 import { LayerSidebar } from "./LayerSidebar";
 import { ParcelleDetailPanel } from "./ParcelleDetailPanel";
+import { ParcelleDpeHistoriquePanel } from "./ParcelleDpeHistoriquePanel";
 
 const DEFAULT_LAYERS: LayerVisibility = { parcelles: true, ventes: false, prixM2: true };
 const DEFAULT_DATE_RANGE: DateRange = { min: "", max: "" };
@@ -35,6 +36,8 @@ export function CarteExplorer() {
   const [ventesEtat, setVentesEtat] = useState<VentesEtat | null>(null);
   const [filtres, setFiltres] = useState<FiltresVentes>(FILTRES_VIDES);
   const [categorie, setCategorie] = useState<Categorie>("bati");
+  const [vue, setVue] = useState<VueCarte>("prix");
+  const [parcelleDpe, setParcelleDpe] = useState<string | null>(null);
 
   const ventesLocked = tier !== "section";
 
@@ -88,6 +91,8 @@ export function CarteExplorer() {
           onChange={setFiltres}
           categorie={categorie}
           onCategorieChange={setCategorie}
+          vue={vue}
+          onVueChange={setVue}
         />
       </LayerSidebar>
       <div className="carte-layout__map">
@@ -103,8 +108,10 @@ export function CarteExplorer() {
           onVentesChargees={setVentesEtat}
           filtres={filtres}
           categorie={categorie}
+          vue={vue}
+          onSelectParcelleDpe={setParcelleDpe}
         />
-        <CarteLegend />
+        <CarteLegend vue={vue} />
         {layers.ventes && ventesLocked && (
           <p className="carte-zoom-hint">Zoomez sur une parcelle pour afficher les ventes</p>
         )}
@@ -118,6 +125,9 @@ export function CarteExplorer() {
         )}
         {selectedParcelle && (
           <ParcelleDetailPanel selection={selectedParcelle} onClose={() => setSelectedParcelle(null)} />
+        )}
+        {parcelleDpe && (
+          <ParcelleDpeHistoriquePanel idParcelle={parcelleDpe} onClose={() => setParcelleDpe(null)} />
         )}
       </div>
     </div>

@@ -12,8 +12,8 @@ import {
   type PrixCarteBucket,
 } from "@/lib/api";
 
-import type { FiltresVentes } from "./FiltresVentes";
-import { formatPrix, formatPrixM2, prixToColor } from "@/lib/prixColor";
+import type { FiltresVentes, VueCarte } from "./FiltresVentes";
+import { dpePartToColor, formatPrix, formatPrixM2, prixToColor } from "@/lib/prixColor";
 
 export type CarteTier = "departement" | "commune" | "section";
 
@@ -60,6 +60,9 @@ interface CarteMapInnerProps {
   onVentesChargees?: (etat: VentesEtat | null) => void;
   filtres?: FiltresVentes;
   categorie?: Categorie;
+  vue?: VueCarte;
+  /** Parcelle cliquée en vue DPE — l'historique complet, pas une vente précise. */
+  onSelectParcelleDpe?: (idParcelle: string) => void;
 }
 
 const PCI_SOURCE_URL = "https://data.geopf.fr/tms/1.0.0/PCI/{z}/{x}/{y}.pbf";
@@ -239,13 +242,23 @@ function buildMatchExpression(
   buckets: PrixCarteBucket[],
   codeProperty: string,
   sliceToSection: boolean,
+  vue: VueCarte,
 ): maplibregl.ExpressionSpecification {
   const expression: unknown[] = [
     "match",
     sliceToSection ? ["slice", ["get", codeProperty], 0, 10] : ["get", codeProperty],
   ];
   for (const bucket of buckets) {
-    expression.push(bucket.code, prixToColor(bucket.prix_m2_median));
+    // En vue DPE, une zone sans statistique (aucune mutation avec étiquette
+    // rapprochée) reste transparente plutôt que coloriée à tort à 0 %.
+    const couleur =
+      vue === "dpe"
+        ? bucket.dpe_part_passoire != null
+          ? dpePartToColor(bucket.dpe_part_passoire)
+          : null
+        : prixToColor(bucket.prix_m2_median);
+    if (couleur == null) continue;
+    expression.push(bucket.code, couleur);
   }
   expression.push("rgba(0,0,0,0)");
   return expression as unknown as maplibregl.ExpressionSpecification;
@@ -270,6 +283,8 @@ export default function CarteMapInner({
   onVentesChargees,
   filtres,
   categorie = "bati",
+  vue = "prix",
+  onSelectParcelleDpe,
 }: CarteMapInnerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
@@ -281,12 +296,15 @@ export default function CarteMapInner({
   const paintedRef = useRef<Map<string, string>>(new Map());
   const popupRef = useRef<maplibregl.Popup | null>(null);
   const loadVentesRef = useRef<(() => Promise<void>) | null>(null);
+  const refreshColorRef = useRef<(() => Promise<void>) | null>(null);
   const ventesAbortRef = useRef<AbortController | null>(null);
   const prixCarteAbortRef = useRef<AbortController | null>(null);
   const onSelectVenteRef = useRef(onSelectVente);
   const onVentesChargeesRef = useRef(onVentesChargees);
   const filtresRef = useRef(filtres);
   const categorieRef = useRef(categorie);
+  const vueRef = useRef(vue);
+  const onSelectParcelleDpeRef = useRef(onSelectParcelleDpe);
 
   layersRef.current = layers;
   venteDateRangeRef.current = venteDateRange;
@@ -294,6 +312,8 @@ export default function CarteMapInner({
   onVentesChargeesRef.current = onVentesChargees;
   filtresRef.current = filtres;
   categorieRef.current = categorie;
+  vueRef.current = vue;
+  onSelectParcelleDpeRef.current = onSelectParcelleDpe;
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
@@ -314,7 +334,11 @@ export default function CarteMapInner({
     };
 
     async function loadPrixCarte(tier: CarteTier, center: maplibregl.LngLat) {
-      let cacheKey = `departement:${categorieRef.current}`;
+      // Un DPE ne concerne jamais un terrain nu : la vue DPE s'appuie toujours
+      // sur les zones "bâti", quel que soit le marché sélectionné par ailleurs
+      // (le sélecteur bâti/terrain est d'ailleurs masqué tant qu'elle est active).
+      const categorieEffective = vueRef.current === "dpe" ? "bati" : categorieRef.current;
+      let cacheKey = `departement:${categorieEffective}`;
       let codeProperty = "insee_dep";
       let sliceToSection = false;
       let scope: { code_departement?: string; code_commune?: string } | undefined;
@@ -329,7 +353,7 @@ export default function CarteMapInner({
         });
         const codeDep = communeFeatures[0]?.properties?.code_dep as string | undefined;
         if (!codeDep) return;
-        cacheKey = `commune:${codeDep}:${categorieRef.current}`;
+        cacheKey = `commune:${codeDep}:${categorieEffective}`;
         codeProperty = "code_insee";
         scope = { code_departement: codeDep };
       } else if (tier === "section") {
@@ -339,7 +363,7 @@ export default function CarteMapInner({
         });
         const codeCommune = parcelleFeatures[0]?.properties?.code_insee as string | undefined;
         if (!codeCommune) return;
-        cacheKey = `section:${codeCommune}:${categorieRef.current}`;
+        cacheKey = `section:${codeCommune}:${categorieEffective}`;
         codeProperty = "idu";
         sliceToSection = true;
         scope = { code_commune: codeCommune };
@@ -347,9 +371,14 @@ export default function CarteMapInner({
 
       const layerId =
         tier === "departement" ? "fill-departement" : tier === "commune" ? "fill-commune" : "fill-section";
+      // Les prix et les stats DPE sortent de la même réponse (mêmes zones) : la
+      // clé de récupération ne dépend que de la catégorie. La clé de peinture y
+      // ajoute la vue, pour qu'un simple basculement Prix/DPE — sans nouvelle
+      // requête — déclenche quand même un repeint avec le bon champ de couleur.
+      const paintKey = `${cacheKey}:${vueRef.current}`;
       // `zoom` (debounce) et `idle` rappellent cette fonction plusieurs fois
       // par geste : sans cette garde, on repeint la même zone à l'identique.
-      if (paintedRef.current.get(layerId) === cacheKey) return;
+      if (paintedRef.current.get(layerId) === paintKey) return;
 
       let buckets = cacheRef.current.get(cacheKey);
       if (!buckets) {
@@ -359,7 +388,7 @@ export default function CarteMapInner({
         try {
           const response = await getPrixCarte(
             tier,
-            { ...scope, categorie: categorieRef.current },
+            { ...scope, categorie: categorieEffective },
             { signal: controller.signal },
           );
           buckets = response.buckets;
@@ -374,9 +403,9 @@ export default function CarteMapInner({
         map.setPaintProperty(
           layerId,
           "fill-color",
-          buildMatchExpression(buckets, codeProperty, sliceToSection),
+          buildMatchExpression(buckets, codeProperty, sliceToSection, vueRef.current),
         );
-        paintedRef.current.set(layerId, cacheKey);
+        paintedRef.current.set(layerId, paintKey);
       }
     }
 
@@ -485,6 +514,7 @@ export default function CarteMapInner({
         await loadPrixCarte(tier, map.getCenter());
       }
     }
+    refreshColorRef.current = refreshColor;
 
     async function refresh() {
       await refreshColor();
@@ -551,26 +581,43 @@ export default function CarteMapInner({
         tier === "departement" ? "insee_dep" : tier === "commune" ? "code_insee" : "idu";
       const rawCode = properties[codeProperty] as string | undefined;
       if (!rawCode) return;
+
+      // En vue DPE, cliquer une parcelle ouvre son historique de diagnostics
+      // plutôt qu'un résumé de zone : il faut l'identifiant complet de la
+      // parcelle (`rawCode`), pas le code de section agrégé (`code`) utilisé
+      // pour la couleur de la choroplèthe.
+      if (tier === "section" && vueRef.current === "dpe") {
+        onSelectParcelleDpeRef.current?.(rawCode);
+        return;
+      }
+
       const code = tier === "section" ? rawCode.slice(0, 10) : rawCode;
+      const categorieEffective = vueRef.current === "dpe" ? "bati" : categorieRef.current;
 
       // Le département (pour le niveau commune) et la commune (pour le
       // niveau section) sont déjà présents sur la feature cliquée elle-même.
-      let cacheKey = `departement:${categorieRef.current}`;
+      let cacheKey = `departement:${categorieEffective}`;
       if (tier === "commune") {
-        cacheKey = `commune:${properties.code_dep as string | undefined}:${categorieRef.current}`;
+        cacheKey = `commune:${properties.code_dep as string | undefined}:${categorieEffective}`;
       } else if (tier === "section") {
-        cacheKey = `section:${properties.code_insee as string | undefined}:${categorieRef.current}`;
+        cacheKey = `section:${properties.code_insee as string | undefined}:${categorieEffective}`;
       }
 
       const bucket = cacheRef.current.get(cacheKey)?.find((item) => item.code === code);
+      const contenu =
+        !bucket
+          ? `<strong>${code}</strong> : données indisponibles`
+          : vueRef.current === "dpe"
+            ? `<strong>${bucket.label}</strong> : ${
+                bucket.dpe_part_passoire != null
+                  ? `${bucket.dpe_part_passoire.toFixed(0)} % de passoires énergétiques`
+                  : "aucune donnée DPE"
+              }`
+            : `<strong>${bucket.label}</strong> : ${formatPrixM2(bucket.prix_m2_median)}/m²`;
       popupRef.current?.remove();
       popupRef.current = new maplibregl.Popup({ closeButton: false })
         .setLngLat(event.lngLat)
-        .setHTML(
-          bucket
-            ? `<strong>${bucket.label}</strong> : ${formatPrixM2(bucket.prix_m2_median)}/m²`
-            : `<strong>${code}</strong> : données indisponibles`,
-        )
+        .setHTML(contenu)
         .addTo(map);
     });
 
@@ -615,6 +662,14 @@ export default function CarteMapInner({
     filtres?.piecesMin,
     filtres?.etiquetteDpe,
   ]);
+
+  // Sans cet effet, changer de marché (bâti/terrain) ou de vue (prix/DPE) ne
+  // recolorait la choroplèthe qu'au prochain déplacement de carte.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !map.isStyleLoaded()) return;
+    refreshColorRef.current?.();
+  }, [categorie, vue]);
 
   useEffect(() => {
     const map = mapRef.current;
