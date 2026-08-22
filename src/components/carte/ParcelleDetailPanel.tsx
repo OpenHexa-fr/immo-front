@@ -9,6 +9,7 @@ import {
   type ParcelleMutation,
   type ZoneResponse,
 } from "@/lib/api";
+import { DPEBadge } from "@/components/DPEBadge";
 import { formatPrix, formatPrixM2 } from "@/lib/prixColor";
 
 import { EvolutionZone } from "./EvolutionZone";
@@ -285,6 +286,11 @@ export function ParcelleDetailPanel({ selection, onClose }: ParcelleDetailPanelP
                     </span>
                   )}
                   {item.surface_reelle_bati != null && <span>{item.surface_reelle_bati} m²</span>}
+                  <DPEBadge
+                    etiquette={item.etiquette_dpe}
+                    typeLocal={item.type_local}
+                    apresVente={item.etiquette_dpe_apres_vente}
+                  />
                 </div>
               ))}
             </div>
