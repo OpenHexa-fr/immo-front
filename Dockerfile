@@ -1,7 +1,7 @@
 # Build multi-stage : l'image finale ne contient que la sortie `standalone`
 # (voir next.config.js), pas tout node_modules — image plus légère et
 # démarrage par `node server.js` plutôt que le CLI `next start`, ce qui
-# réduit le cold start sur Azure Container Apps (min-replicas 0).
+# réduit le cold start (hébergement scale-to-zero).
 FROM node:20-alpine AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
